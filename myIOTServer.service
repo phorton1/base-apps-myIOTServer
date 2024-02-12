@@ -52,7 +52,7 @@ Description=:myIOTServer running on a rPi
 [Service]
 Type=forking
 PIDFile=/base_data/temp/myIOTServer/myIOTServer.pid
-ExecStart=/base/My/IOT/myIOTServer.pm
+ExecStart=/base/apps/myIOTServer/myIOTServer.pm
 ExecStop=kill -KILL $(cat /base_data/temp/myIOTServer/myIOTServer.pid)
 Restart=on-failure
 RestartSec=60s
