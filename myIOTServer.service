@@ -54,6 +54,7 @@ Type=forking
 PIDFile=/base_data/temp/myIOTServer/myIOTServer.pid
 ExecStart=/base/apps/myIOTServer/myIOTServer.pm
 ExecStop=kill -KILL $(cat /base_data/temp/myIOTServer/myIOTServer.pid)
+EnvironmentFile=/etc/environment
 Restart=on-failure
 RestartSec=60s
 User=pi
