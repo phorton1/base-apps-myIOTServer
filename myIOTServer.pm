@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 #-----------------------------------------------------
-# apps::MyIOTServer::IOTServer.pm
+# apps::myIOTServer::IOTServer.pm
 #-----------------------------------------------------
 # The Server for my IOT Server running on the rPi
 
-package apps::MyIOTServer::myIOTServer;
-	# continued in apps::MyIOTServer::HTTPServer.pm
+package apps::myIOTServer::myIOTServer;
+	# continued in apps::myIOTServer::HTTPServer.pm
 use strict;
 use warnings;
 use threads;
@@ -19,12 +19,12 @@ use Pub::DebugMem;
 use Pub::ServerUtils;
 use Pub::PortForwarder;
 use Pub::HTTP::ServerBase;
-use apps::MyIOTServer::Device;
-use apps::MyIOTServer::HTTPServer;
-use apps::MyIOTServer::Searcher;
-use apps::MyIOTServer::Wifi;
-use apps::MyIOTServer::WSLocal;
-use apps::MyIOTServer::WSRemote;
+use apps::myIOTServer::Device;
+use apps::myIOTServer::HTTPServer;
+use apps::myIOTServer::Searcher;
+use apps::myIOTServer::Wifi;
+use apps::myIOTServer::WSLocal;
+use apps::myIOTServer::WSRemote;
 use base qw(Pub::HTTP::ServerBase);
 use sigtrap qw/handler signal_handler normal-signals/;
 	# start signal handlers
@@ -64,7 +64,7 @@ sub startHTTPS
 	getObjectPref($params,'HTTP_AUTH_REALM',	"myIOTServer");
 	getObjectPref($params,'HTTP_DOCUMENT_ROOT',	"/base/Pub/IOT/site");
 
-	$https_server = apps::MyIOTServer::myIOTServer->new($params);
+	$https_server = apps::myIOTServer::myIOTServer->new($params);
 	$https_server->start();
 }
 
@@ -76,7 +76,7 @@ sub startHTTPS
 sub stopEverything
 {
 	LOG(-1,"Stopping Searcher");
-	apps::MyIOTServer::Searcher::stop();
+	apps::myIOTServer::Searcher::stop();
 	LOG(-1,"Searcher STOPPED");
 
 	if ($https_server)
@@ -88,24 +88,24 @@ sub stopEverything
 	}
 
 	LOG(-1,"Stopping WSRemote");
-	apps::MyIOTServer::WSRemote::stop();
+	apps::myIOTServer::WSRemote::stop();
 	LOG(-1,"WSRemote STOPPED");
 
 	LOG(-1,"Stopping WSRemote");
-	apps::MyIOTServer::WSLocal::stop();
+	apps::myIOTServer::WSLocal::stop();
 	LOG(-1,"WSRemote STOPPED");
 }
 
 
 sub startEverything
 {
-	apps::MyIOTServer::WSRemote::start();
+	apps::myIOTServer::WSRemote::start();
 
 	# Should be a check on the success of starting the HTTPS server
 	# and if it doesn't work, bail and re-schedule the whole thing.
 
 	startHTTPS();
-	while (!apps::MyIOTServer::Searcher::start(\&apps::MyIOTServer::Device::add))
+	while (!apps::myIOTServer::Searcher::start(\&apps::myIOTServer::Device::add))
 	{
 		display(0,0,"waiting 3 seconds to restry starting Searcher");
 		sleep(3);
@@ -148,8 +148,8 @@ LOG(-1,"myIOTServer started ".($AS_SERVICE?"AS_SERVICE":"NO_SERVICE")."  server_
 # This is already done by initServerUtils, but we monitor the wifi
 
 my $wifi_count = 0;
-apps::MyIOTServer::Wifi::start();
-while (!apps::MyIOTServer::Wifi::connected())
+apps::myIOTServer::Wifi::start();
+while (!apps::myIOTServer::Wifi::connected())
 {
 	display(0,0,"Waiting for wifi connection ".$wifi_count++);
 	sleep(1);
@@ -173,9 +173,9 @@ my $memory_time = 0;
 
 while (1)
 {
-	if ($last_connected != apps::MyIOTServer::Wifi::connected())
+	if ($last_connected != apps::myIOTServer::Wifi::connected())
 	{
-		$last_connected = apps::MyIOTServer::Wifi::connected();
+		$last_connected = apps::myIOTServer::Wifi::connected();
 		if ($last_connected)
 		{
 			sleep(5);
@@ -191,10 +191,10 @@ while (1)
 	elsif ($last_connected)
 	{
 		# not threaded port forwarder
-		# apps::MyIOTServer::PortForwarder::loop()
-		apps::MyIOTServer::Device::loop();
-		apps::MyIOTServer::WSLocal::loop();
-		apps::MyIOTServer::WSRemote::loop();
+		# apps::myIOTServer::PortForwarder::loop()
+		apps::myIOTServer::Device::loop();
+		apps::myIOTServer::WSLocal::loop();
+		apps::myIOTServer::WSRemote::loop();
 	}
 
 

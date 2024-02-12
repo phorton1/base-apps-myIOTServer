@@ -7,7 +7,7 @@
 use lib '/base';
 	# needed for unix service
 
-package apps::MyIOTServer::myIOTServer;		# continued
+package apps::myIOTServer::myIOTServer;		# continued
 use strict;
 use warnings;
 use threads;
@@ -31,7 +31,7 @@ my $dbg_fwd = 0;
 sub handle_request
 	# At this point they are logged with a valid HTTP basicAuth header that
 	# has been confirmed against the user names and passwords in users.txt.
-	# apps::MyIOTServer::Serverbase has added "auth_user" and "auth_privs" fields with
+	# apps::myIOTServer::Serverbase has added "auth_user" and "auth_privs" fields with
 	# the "privs" from that user file.
     #
 	# $request->{auth_priv}, availalbe for use, is a comma delimited list
@@ -93,7 +93,7 @@ sub handle_request
 
 	elsif ($uri eq "/reboot")
 	{
-		LOG(0,"apps::MyIOTServer::Handler rebooting the rPi");
+		LOG(0,"apps::myIOTServer::Handler rebooting the rPi");
 		system("sudo reboot");
 		$response = Pub::HTTP::Response->new($request,200,"text/plain",
 			"Rebooting Server");
@@ -101,10 +101,10 @@ sub handle_request
 	elsif ($uri eq '/server/restart')
 	{
 		my $what = $1;
-		my $msg = "apps::MyIOTServer::Handler restarting the myIOTServer.service in 5 seconds";
+		my $msg = "apps::myIOTServer::Handler restarting the myIOTServer.service in 5 seconds";
 		LOG(0,$msg);
 		no warnings 'once';
-		$apps::MyIOTServer::myIOTServer::do_restart = time();
+		$apps::myIOTServer::myIOTServer::do_restart = time();
 		$response = Pub::HTTP::Response->new($request,200,'text/plain',$msg);
 	}
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
@@ -128,7 +128,7 @@ sub handle_request
 		}
 		else
 		{
-			my $msg = "apps::MyIOTServer::Handler $what the fileServer service";
+			my $msg = "apps::myIOTServer::Handler $what the fileServer service";
 			LOG(0,$msg);
 			system("sudo systemctl $what prh-fileserver.service");
 			$response = Pub::HTTP::Response->new($request,200,'text/plain',$msg);
@@ -163,14 +163,14 @@ sub handle_request
 
 	elsif ($uri eq "/ws")
 	{
-		$response = apps::MyIOTServer::WSRemote::handle_request($this,$client,$request);
+		$response = apps::myIOTServer::WSRemote::handle_request($this,$client,$request);
 	}
 
 
 	#------------------------------------
 	# Base Class Stuff
 	#------------------------------------
-	# Let the base class handle regular serving from apps::MyIOTServer::site directory
+	# Let the base class handle regular serving from apps::myIOTServer::site directory
 
 	else
 	{
@@ -189,7 +189,7 @@ sub forwardRequest
 
 	# find the device
 
-	my $device = apps::MyIOTServer::Device::findDeviceByUUID($uuid);
+	my $device = apps::myIOTServer::Device::findDeviceByUUID($uuid);
 	if (!$device)
 	{
 		error("Could not find device($uuid) in $kind $request->{method} request");
@@ -206,7 +206,7 @@ sub forwardRequest
 		return;
 	}
 
-	# magic copied from apps::MyIOTServer::Message.pm
+	# magic copied from apps::myIOTServer::Message.pm
 
     local $/ = Socket::CRLF;
 	binmode $sock;

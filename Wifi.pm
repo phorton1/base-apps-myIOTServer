@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 #-----------------------------------------------------
-# apps::MyIOTServer::WiFi.pm
+# apps::myIOTServer::WiFi.pm
 #-----------------------------------------------------
 # A cross platform "monitor" for wifi status.
 # Calls "ipconfig /all" on windows and "iwconfig
 
-package apps::MyIOTServer::Wifi;
+package apps::myIOTServer::Wifi;
 use strict;
 use warnings;
 use threads;
@@ -32,10 +32,10 @@ sub connected
 
 sub start
 {
-    display($dbg_wifi,0,"apps::MyIOTServer::WiFi::start() called");
+    display($dbg_wifi,0,"apps::myIOTServer::WiFi::start() called");
 	$wifi_thread = threads->create(\&wifiThread);
 	$wifi_thread->detach();
-	display($dbg_wifi,0,"apps::MyIOTServer::WiFi::start() returning");
+	display($dbg_wifi,0,"apps::myIOTServer::WiFi::start() returning");
 }
 
 

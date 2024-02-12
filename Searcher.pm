@@ -6,7 +6,7 @@
 # monitor the actual SSDP broadcast IP:port.  The code currently
 # exists in SSDP::Server.
 
-package apps::MyIOTServer::Searcher;
+package apps::myIOTServer::Searcher;
 use strict;
 use warnings;
 use threads;
@@ -14,7 +14,7 @@ use threads::shared;
 use IO::Select;
 use IO::Socket::INET;
 use Pub::Utils;
-use apps::MyIOTServer::Wifi;
+use apps::myIOTServer::Wifi;
 
 
 my $dbg_searcher = 0;
@@ -208,7 +208,7 @@ sub listenerThread
 	_sendSearch();
 	my $last_time = time();
 
-	while (apps::MyIOTServer::Wifi::connected() && !$g_stopping)
+	while (apps::myIOTServer::Wifi::connected() && !$g_stopping)
 	{
 		if (time() > $last_time + $REFRSH_TIME)
 		{

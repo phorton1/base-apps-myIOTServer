@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #-----------------------------------------------------
-# apps::MyIOTServer::Device.pm
+# apps::myIOTServer::Device.pm
 #-----------------------------------------------------
 # One of these is created for each known ESP32 myIOTDevice
 # that is found with SSDP.  It maintains contact with the
@@ -16,14 +16,14 @@
 # be associated with a single local "device" (WSLocal) socket,
 # though multiple such WSRemote sockets can exist.
 
-package apps::MyIOTServer::Device;
+package apps::myIOTServer::Device;
 use strict;
 use warnings;
 use threads;
 use threads::shared;
 use Pub::Utils;
 use Pub::Prefs;
-use apps::MyIOTServer::WSLocal;
+use apps::myIOTServer::WSLocal;
 use JSON;
 
 
@@ -186,7 +186,7 @@ sub add
 
 	if (!$device)
 	{
-		$device = apps::MyIOTServer::Device->new($uuid,$type,$version,$rec->{ip},$rec->{port});
+		$device = apps::myIOTServer::Device->new($uuid,$type,$version,$rec->{ip},$rec->{port});
 		$devices->{$uuid} = $device;
 	}
 	else
@@ -226,14 +226,14 @@ sub loop
 			display($dbg_device,0,"handleDevices opening $device->{type}");
 			$device->{ws_opening} = 1;
 
-			if (apps::MyIOTServer::WSLocal::open($device))
+			if (apps::myIOTServer::WSLocal::open($device))
 			{
 				display($dbg_device+1,0,"device got ws_local #$device->{ws_num}");
 			}
 		}
 
 	}	# for each device
-}	# apps::MyIOTServer::Device::loop()
+}	# apps::myIOTServer::Device::loop()
 
 
 
@@ -244,7 +244,7 @@ sub _writeSocket
 	if ($this->{ws_num})
 	{
 		display($dbg_device,0,"DEVICE($this->{type}) _writeSocket($msg)");
-		apps::MyIOTServer::WSLocal::writeSocket($this->{ws_num},$msg);
+		apps::myIOTServer::WSLocal::writeSocket($this->{ws_num},$msg);
 	}
 	else
 	{

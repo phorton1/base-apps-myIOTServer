@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #-----------------------------------------------------
-# apps::MyIOTServer::WSLocal.pm
+# apps::myIOTServer::WSLocal.pm
 #-----------------------------------------------------
 # WSLocal is the object that handles persistent
 # WebSocket connections to local myIOT devices.
@@ -8,7 +8,7 @@
 # the WSRemote to channel requests between external
 # remote WSS javascript clients and local IOT devics.
 
-package apps::MyIOTServer::WSLocal;
+package apps::myIOTServer::WSLocal;
 use strict;
 use warnings;
 use threads;

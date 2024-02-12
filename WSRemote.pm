@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #-----------------------------------------------------
-# apps::MyIOTServer::WSRemote.pm
+# apps::myIOTServer::WSRemote.pm
 #-----------------------------------------------------
 # WSRemote is an object that handles persistent
 # WebSocket connections to remote javascript clients
@@ -11,7 +11,7 @@
 # the WSLocal to channel requests between external
 # remote WSS javascript clients and local IOT devics.
 #
-# apps::MyIOTServer::Server serves webSockets over the same port
+# apps::myIOTServer::Server serves webSockets over the same port
 # as the HTTPS Server (6902). Any requests to /ws are
 # directed here, and after the handshake is negotiated.
 # an endless loop keeps the forked or separate threaded
@@ -22,7 +22,7 @@
 # This technique, of course, should NOT be used with a
 # non-forked, non-threaded WebServer.
 
-package apps::MyIOTServer::WSRemote;
+package apps::myIOTServer::WSRemote;
 use strict;
 use warnings;
 use threads;
@@ -121,7 +121,7 @@ sub loop
 	# Usually there will be very few remotes at any given time,
 	# though there are expected to be a number of devices.
 {
-	my $devices = apps::MyIOTServer::Device::getDevices();
+	my $devices = apps::myIOTServer::Device::getDevices();
 	for my $device (values %$devices)
 	{
 		if ($device->{pending_remote})
@@ -270,7 +270,7 @@ sub handleRemoteJson
 	{
 		my $uuid = $json->{uuid};
 		display($dbg_wss,-1,"WS_REMOTE($server_num) setContext($uuid)");
-		my $devices = apps::MyIOTServer::Device::getDevices();
+		my $devices = apps::myIOTServer::Device::getDevices();
 		my $device = $devices->{$uuid};
 		if ($device)
 		{
@@ -296,7 +296,7 @@ sub handleRemoteJson
 	elsif ($cmd eq 'device_list')
 	{
 		my $text = '';
-		my $devices = apps::MyIOTServer::Device::getDevices();
+		my $devices = apps::myIOTServer::Device::getDevices();
 		for my $device (sort {$a->{type} cmp $b->{type}} values %$devices)
 		{
 			if ($device->{cache})
