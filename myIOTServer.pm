@@ -62,7 +62,7 @@ sub startHTTPS
 	getObjectPref($params,'HTTP_SSL_KEY_FILE',	"/base_data/_ssl/myIOTServer.key");
 	getObjectPref($params,'HTTP_AUTH_FILE',		"$data_dir/users.txt");
 	getObjectPref($params,'HTTP_AUTH_REALM',	"myIOTServer");
-	getObjectPref($params,'HTTP_DOCUMENT_ROOT',	"/base/Pub/IOT/site");
+	getObjectPref($params,'HTTP_DOCUMENT_ROOT',	"/base/apps/myIOTServer/site");
 
 	$https_server = apps::myIOTServer::myIOTServer->new($params);
 	$https_server->start();
