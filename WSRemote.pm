@@ -290,8 +290,13 @@ sub handleWSRemote
 		}
 		else
 		{
-			sleep(0.1);
 			# display($dbg_wss+2,-1,"WS_REMOTE($server_num) needs some kind of idle detection");
+			# TODO: this loop, and probably a similar one in WSLocal, is extremely greedy.
+			# Probably want to implement an active/idle timing scheme similar to the
+			# one implemented in HTTP::ServerBase to reduce overall service duty load.
+
+			sleep(0.1);
+
 		}
 	}
 
