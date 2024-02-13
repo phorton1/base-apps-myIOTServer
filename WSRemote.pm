@@ -21,6 +21,15 @@
 #
 # This technique, of course, should NOT be used with a
 # non-forked, non-threaded WebServer.
+#
+# HANDLE LIMITATION
+#
+# There is a limit of 65 open handles on Windows.
+# Even with workarounds in HTTP::ServerBase, you
+# can only open so many myIOT sessions to single
+# myIOTServer. This is a known limitation. As long
+# as they are correctly closed upon quitting/timing
+# out, this seems like a reasonable limitation.
 
 package apps::myIOTServer::WSRemote;
 use strict;
@@ -37,6 +46,7 @@ use Protocol::WebSocket::Frame;
 use JSON;
 
 
+my $ws_thread;
 my $ws_server_num:shared = 0;
 my $remotes:shared = shared_clone({});
 
@@ -61,6 +71,8 @@ sub handle_request
 {
     my ($server,$client,$request) = @_;
 
+	my $fileno = fileno $client;
+	display($dbg_wss+1,0,"client sock($client) fileno($fileno)");
 	display_hash($dbg_wss+1,0,"request",$request);
 	display_hash($dbg_wss+1,0,"headers",$request->{headers});
 	display_hash($dbg_wss+1,0,"server default_headers",$request->{server}->{default_headers});
@@ -90,8 +102,20 @@ sub handle_request
 		display($dbg_wss+1,0,"reply_key='$reply_key'   digest='$digest'");
 		$client->write($upgrade_response);
 
-		handleWSRemote($client);
-		$response = $RESPONSE_HANDLED;
+		# WSRemote CANNOT be made into a separate thread if/because
+		# $client is an SSL socket.  There is special handling in
+		# ServerBase for this condition.
+
+		if (0)
+		{
+			handleWSRemote($client,$request);
+		}
+		else
+		{
+			$ws_thread = threads->create(\&handleWSRemote,$client,$request);
+			$ws_thread->detach();
+		}
+		$response = $RESPONSE_STAY_OPEN;
 	}
 	else
 	{
@@ -107,8 +131,30 @@ sub writeRemote
 {
 	my ($sock,$server_num,$buf) = @_;
 	display($dbg_wss+1,0,"WS_REMOTE($server_num) writeRemote(".length($buf).")");
+
 	my $frame = Protocol::WebSocket::Frame->new(buffer => $buf);
-	$sock->write($frame->to_bytes());
+	my $data = $frame->to_bytes();
+	if (1)
+	{
+		$sock->write($data);
+	}
+	else
+	{
+		my $len = length($data);
+		my $fileno = fileno $sock;
+		display($dbg_wss+1,1,"sock($sock) fileno($fileno) frame length=$len");
+
+		my $select = IO::Select->new($sock);
+		my $can_read = $select->can_read(0.001) ? 1 : 0;
+		my $can_write = $select->can_write(0.001) ? 1 : 0;
+		my $exception = $select->has_exception (0.001) ? 1 : 0;
+		my $pending = $sock->pending() || 0;
+		display(0,0,"pending($pending) can_read($can_read) can_write($can_write) exception($exception)");
+
+		my $rslt = syswrite($sock,$data,$len);
+
+		display($dbg_wss+1,1,"writeRemote() wrote($rslt/$len) bytes");
+	}
 }
 
 
@@ -155,7 +201,7 @@ sub loop
 sub handleWSRemote
 	# promoted to Websocket, handle comms from remote javascript UI
 {
-	my ($sock) = @_;
+	my ($sock,$request) = @_;
 	my $frame = Protocol::WebSocket::Frame->new();
 	$ws_server_num++;
 
@@ -196,6 +242,8 @@ sub handleWSRemote
 
 		if ($select->can_read(0.01))
 		{
+			display($dbg_wss+2,-1,"WS_REMOTE($server_num) can_read()");
+
 			my $buf;
 			my $bytes = sysread $sock, $buf, 16384;
 			if ($bytes)
@@ -240,6 +288,11 @@ sub handleWSRemote
 				$pending = shift @{$remote->{pending_out}};
 			}
 		}
+		else
+		{
+			sleep(0.1);
+			# display($dbg_wss+2,-1,"WS_REMOTE($server_num) needs some kind of idle detection");
+		}
 	}
 
 
@@ -248,6 +301,7 @@ CLOSE_REMOTE:
 	warning($dbg_wss,-1,"WS_REMOTE($server_num) disconnected!!!!");
 	delete $remotes->{$server_num};
 	$sock->close();
+	Pub::HTTP::ServerBase::endOpenRequest($request);
 }
 
 
