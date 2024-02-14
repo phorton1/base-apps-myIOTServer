@@ -95,8 +95,7 @@ sub handle_request
 	{
 		LOG(0,"apps::myIOTServer::Handler rebooting the rPi");
 		system("sudo reboot");
-		$response = Pub::HTTP::Response->new($request,200,"text/plain",
-			"Rebooting Server");
+		$response = http_ok($request,"Rebooting Server");
 	}
 	elsif ($uri eq '/server/restart')
 	{
@@ -105,7 +104,7 @@ sub handle_request
 		LOG(0,$msg);
 		no warnings 'once';
 		$apps::myIOTServer::myIOTServer::do_restart = time();
-		$response = Pub::HTTP::Response->new($request,200,'text/plain',$msg);
+		$response = http_ok($request,200,$msg);
 	}
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
 	{
@@ -113,8 +112,9 @@ sub handle_request
 		my $fs_logfile = "/base_data/temp/fileServer.log";
 		if ($what eq 'log')
 		{
-			$response = Pub::HTTP::Response->new($request,200,'text/plain',
-				shared_clone({filename=>$fs_logfile}));
+			$response = Pub::HTTP::Response->new($request,
+				shared_clone({filename=>$fs_logfile}),
+				200,'text/plain');
 		}
 		elsif ($what eq 'log/clear')
 		{
@@ -123,27 +123,29 @@ sub handle_request
 			$logfile = $fs_logfile;
 			LOG(0,"fs_logfile $fs_logfile cleared");
 			$logfile = $save_logfile;
-			$response = Pub::HTTP::Response->new($request,200,'text/plain',
-				shared_clone({filename=>$fs_logfile}));
+			$response = Pub::HTTP::Response->new($request,
+				shared_clone({filename=>$fs_logfile}),
+				200,'text/plain');
 		}
 		else
 		{
 			my $msg = "apps::myIOTServer::Handler $what the fileServer service";
 			LOG(0,$msg);
 			system("sudo systemctl $what prh-fileserver.service");
-			$response = Pub::HTTP::Response->new($request,200,'text/plain',$msg);
+			$response = http_ok($request,$msg);
 		}
 	}
 	elsif ($uri eq "/log")
 	{
-		$response = Pub::HTTP::Response->new($request,200,'text/plain',
-            shared_clone({filename=>$logfile}));
+		$response = Pub::HTTP::Response->new($request,
+            shared_clone({filename=>$logfile}),
+			200,'text/plain');
 	}
 	elsif ($uri eq "/log/clear")
 	{
 		if (!(-f $logfile))
 		{
-			$response = Pub::HTTP::Response->new($request,200,'text/plain',"LOGFILE $logfile does not exist");
+			$response = http_ok($request,"LOGFILE $logfile does not exist");
 		}
 		else
 		{
@@ -151,8 +153,9 @@ sub handle_request
 			sleep(1);
 			LOG(0,"logfile $logfile cleared");
 			sleep(1);
-			$response = Pub::HTTP::Response->new($request,200,'text/plain',
-				shared_clone({filename=>$logfile}));
+			$response = Pub::HTTP::Response->new($request,
+				shared_clone({filename=>$logfile}),
+				200,'text/plain');
 		}
 	}
 

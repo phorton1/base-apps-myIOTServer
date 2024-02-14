@@ -81,7 +81,7 @@ sub handle_request
 	# and not send anything, or send specific replies.
 
 	my $response;
-	my $upgrade = $request->{headers}->{upgrade};
+	my $upgrade = $request->{headers}->{upgrade} || '';
 	if ($upgrade && $upgrade eq 'websocket')
 	{
 		my $key = $request->{headers}->{'sec-websocket-key'};
@@ -119,7 +119,9 @@ sub handle_request
 	}
 	else
 	{
-		$response = Pub::HTTP::Response->new($request,401,'text/plain','not found');
+		$response = Pub::HTTP::Response->new($request,
+			"unknown upgrade request: $upgrade",
+			501,'text/plain');
 	}
 
 	return $response;
