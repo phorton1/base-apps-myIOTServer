@@ -17,6 +17,7 @@ use Pub::Utils;
 use Pub::Prefs;
 use Pub::DebugMem;
 use Pub::ServerUtils;
+use Pub::ServiceMain;
 use Pub::PortForwarder;
 use Pub::HTTP::ServerBase;
 use apps::myIOTServer::Device;
@@ -26,8 +27,7 @@ use apps::myIOTServer::Wifi;
 use apps::myIOTServer::WSLocal;
 use apps::myIOTServer::WSRemote;
 use base qw(Pub::HTTP::ServerBase);
-use sigtrap qw/handler signal_handler normal-signals/;
-	# start signal handlers
+
 
 my $dbg_main = 0;
 
@@ -140,7 +140,10 @@ display($dbg_main,0,"$program_name.pm starting");
 display($dbg_main,0,"----------------------------------------------");
 
 
-initPrefs("$data_dir/$program_name.prefs",{},"/base_data/_ssl/PubCryptKey.txt");
+Pub::Prefs::initPrefs(
+	"$data_dir/$program_name.prefs",
+	{},
+	"/base_data/_ssl/PubCryptKey.txt");
 
 LOG(-1,"myIOTServer started ".($AS_SERVICE?"AS_SERVICE":"NO_SERVICE")."  server_ip=$server_ip");
 
@@ -154,6 +157,8 @@ while (!apps::myIOTServer::Wifi::connected())
 	display(0,0,"Waiting for wifi connection ".$wifi_count++);
 	sleep(1);
 }
+
+
 
 
 
@@ -171,11 +176,13 @@ my $MEMORY_REFRESH = 7200;		# every 2 hours
 my $memory_time = 0;
 
 
-while (1)
+sub on_loop
 {
-	if ($last_connected != apps::myIOTServer::Wifi::connected())
+	my $connected = apps::myIOTServer::Wifi::connected();
+
+	if ($last_connected != $connected)
 	{
-		$last_connected = apps::myIOTServer::Wifi::connected();
+		$last_connected = $connected;
 		if ($last_connected)
 		{
 			sleep(5);
@@ -188,15 +195,16 @@ while (1)
 			sleep(5);
 		}
 	}
-	elsif ($last_connected)
+	elsif ($last_connected)	# greedy
 	{
 		# not threaded port forwarder
 		# apps::myIOTServer::PortForwarder::loop()
+		# TODO: These should all be threaded, with appropriate select/blocking
+
 		apps::myIOTServer::Device::loop();
 		apps::myIOTServer::WSLocal::loop();
 		apps::myIOTServer::WSRemote::loop();
 	}
-
 
 	my $now = time();
 	if ($MEMORY_REFRESH && ($now > $memory_time + $MEMORY_REFRESH))
@@ -214,33 +222,19 @@ while (1)
 }
 
 
+# Uses 10% of Windows machine, probably 30% of rPi
 
-#----------------------------------
-# Signal Handler
-#----------------------------------
-# good candidate for a global method in Pub::ServerUtils
-
-sub signal_handler
-{
-	my ($sig) = @_;
-	my $thread = threads->self();
-	my $id = $thread ? $thread->tid() : "undef";
-
-    LOG(-1,"CAUGHT SIGNAL: SIG$sig  THREAD_ID=$id");
-
-	# We catch SIG_PIPE (there's probably a way to know the actual signal instead of using its 'name')
-	# on the rPi for the WSLocal connection when a device reboots.  We have to return from the signal
-	# or else the server will shut down.
-
-	return if $sig =~ 'PIPE';
-	stopEverything();
-    LOG(-1,"FINISHED SIGNAL");
-	kill 9,$$;	# exit 1;
-}
+Pub::ServiceMain::main_loop({
+	MAIN_LOOP_CONSOLE => 1,
+	MAIN_LOOP_SLEEP => 0,		# GREEDY - most programs use 0.2,
+	MAIN_LOOP_CB_TIME => 0,		# most programs use 1 minimum
+	MAIN_LOOP_CB => \&on_loop,
+	# MAIN_LOOP_KEY_CB => \&on_console_key,
+	# MAIN_LOOP_TERMINATE_CB => \&on_terminate,
+});
 
 
-# Never Gets here
+# never gets here
 
-LOG(0,"myIOTServer finishing");
 
 1;
