@@ -140,7 +140,7 @@ display($dbg_main,0,"$program_name.pm starting");
 display($dbg_main,0,"----------------------------------------------");
 
 
-Pub::Prefs::initPrefs("$data_dir/$program_name.prefs","/base_data/_ssl/PubCryptKey.txt");
+initPrefs("$data_dir/$program_name.prefs",{},"/base_data/_ssl/PubCryptKey.txt");
 
 LOG(-1,"myIOTServer started ".($AS_SERVICE?"AS_SERVICE":"NO_SERVICE")."  server_ip=$server_ip");
 
