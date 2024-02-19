@@ -121,11 +121,11 @@ sub handle_request
 				shared_clone({filename=>$fs_logfile}),
 				200,'text/plain');
 		}
-		else
+		elsif ($what =~ /^(stop|start|restart)$/)
 		{
 			my $msg = "apps::myIOTServer::Handler $what the fileServer service";
 			LOG(0,$msg);
-			system("sudo systemctl $what prh-fileserver.service");
+			system("sudo systemctl $what fileServer");
 			$response = http_ok($request,$msg);
 		}
 	}
