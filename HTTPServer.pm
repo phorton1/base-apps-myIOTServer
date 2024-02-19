@@ -103,7 +103,7 @@ sub handle_request
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
 	{
 		my $what = $1;
-		my $fs_logfile = "/base_data/temp/fileServer.log";
+		my $fs_logfile = "/base_data/temp/fileServer/fileServer.log";
 		if ($what eq 'log')
 		{
 			$response = Pub::HTTP::Response->new($request,
