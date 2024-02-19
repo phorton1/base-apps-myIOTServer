@@ -186,7 +186,7 @@ sub local_thread
 END_LOCAL_THREAD:
 
 	display($dbg_local,0,"WS_LOCAL($local_num) local_thread() terminating");
-	$local_websockets->{$local_num}->insert(0,'TERMINATE');
+	$local_websockets->{$local_num}->{out_queue}->insert(0,'TERMINATE');
 	delete $local_websockets->{$local_num};
 	$ws_client->{ping_time} = 0;
 	$ws_client->{pong_count} = 0;

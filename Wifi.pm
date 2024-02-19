@@ -107,6 +107,16 @@ sub wifiThread
                 $wifi_rssi = 0 if !$got_connected;
             }
         }
+        
+        # jeez - I went through the whole process of using threads
+        # and Thread::Queues to try to improve the behavior of myIOTServer,
+        # only to discover that there was no sleep on this loop, thus using
+        # all of the CPU to see if it was time to check for wifi connect changes!
+        
+        else
+        {
+			sleep(2);
+		}
     }
 }
 
