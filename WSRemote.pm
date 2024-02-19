@@ -30,12 +30,22 @@
 # myIOTServer. This is a known limitation. As long
 # as they are correctly closed upon quitting/timing
 # out, this seems like a reasonable limitation.
+#
+#--------------------------------------------------
+# 2024-02-19 - separate thread and blocking Thread::Queue
+#--------------------------------------------------
+# The use of a separate thread and blocking Thread::Queue
+# allowed to change this from a polling 100 times a second
+# loop into a select can_read() with 2 seconds, signficantly
+# reducing server load at a hopefully reasonable cost in memory.
+
 
 package apps::myIOTServer::WSRemote;
 use strict;
 use warnings;
 use threads;
 use threads::shared;
+use Thread::Queue;
 use Pub::Utils;
 use Pub::Prefs;
 use Pub::HTTP::Request;
@@ -46,24 +56,48 @@ use Protocol::WebSocket::Frame;
 use JSON;
 
 
-my $ws_thread;
-my $ws_server_num:shared = 0;
-my $remotes:shared = shared_clone({});
-
-
 my $dbg_wss = 0;
 my $dbg_ping = 1;
 
 
-# start and stop for API compatibility
+my $SELECT_TIME = 2.0;
+	# The greatest resolution at which PING timeouts
+	# can be detected is the number of seconds each
+	# socket blocks for reading with select::can_read()
+
+
+my $ws_thread;
+my $in_thread;
+my $out_thread;
+my $ws_server_num:shared = 0;
+my $in_queue = Thread::Queue->new();
+my $remotes:shared = shared_clone({});
+
+
+#-----------------------------------------------
+# start and stop API from myIOTServer.pm
+#-----------------------------------------------
 
 sub start
-{}
+{
+	display($dbg_wss,0,"WSRemote::start()");
+	$in_thread = threads->create(\&in_thread);
+	$in_thread->detach();
+}
+
+
+
 sub stop
-{}
+{
+	display($dbg_wss,0,"WSRemote::stop()");
+	enqueueIn(undef,'TERMINATE',1);
+}
 
 
-# handle_request (threaded)
+
+#---------------------------------------------------
+# handle_request() entry point from HTTPServer.pm
+#---------------------------------------------------
 
 sub handle_request
 	# An HTTPS request to /ws has been made.
@@ -77,8 +111,9 @@ sub handle_request
 	display_hash($dbg_wss+1,0,"headers",$request->{headers});
 	display_hash($dbg_wss+1,0,"server default_headers",$request->{server}->{default_headers});
 
-	# There are a number of security requirements upon which we should close the connection
-	# and not send anything, or send specific replies.
+	# There are a number of security requirements upon which
+	# we should close the connection and not send anything, or
+	# send specific replies.
 
 	my $response;
 	my $upgrade = $request->{headers}->{upgrade} || '';
@@ -102,19 +137,8 @@ sub handle_request
 		display($dbg_wss+1,0,"reply_key='$reply_key'   digest='$digest'");
 		$client->write($upgrade_response);
 
-		# WSRemote CANNOT be made into a separate thread if/because
-		# $client is an SSL socket.  There is special handling in
-		# ServerBase for this condition.
-
-		if (0)
-		{
-			handleWSRemote($client,$request);
-		}
-		else
-		{
-			$ws_thread = threads->create(\&handleWSRemote,$client,$request);
-			$ws_thread->detach();
-		}
+		$ws_thread = threads->create(\&handle_ws_remote,$client,$request);
+		$ws_thread->detach();
 		$response = $RESPONSE_STAY_OPEN;
 	}
 	else
@@ -129,78 +153,9 @@ sub handle_request
 
 
 
-sub writeRemote
-{
-	my ($sock,$server_num,$buf) = @_;
-	display($dbg_wss+1,0,"WS_REMOTE($server_num) writeRemote(".length($buf).")");
-
-	my $frame = Protocol::WebSocket::Frame->new(buffer => $buf);
-	my $data = $frame->to_bytes();
-	if (1)
-	{
-		$sock->write($data);
-	}
-	else
-	{
-		my $len = length($data);
-		my $fileno = fileno $sock;
-		display($dbg_wss+1,1,"sock($sock) fileno($fileno) frame length=$len");
-
-		my $select = IO::Select->new($sock);
-		my $can_read = $select->can_read(0.001) ? 1 : 0;
-		my $can_write = $select->can_write(0.001) ? 1 : 0;
-		my $exception = $select->has_exception (0.001) ? 1 : 0;
-		my $pending = $sock->pending() || 0;
-		display(0,0,"pending($pending) can_read($can_read) can_write($can_write) exception($exception)");
-
-		my $rslt = syswrite($sock,$data,$len);
-
-		display($dbg_wss+1,1,"writeRemote() wrote($rslt/$len) bytes");
-	}
-}
 
 
-
-sub loop
-	# for each device with any pending_remotes,
-	# shift them off of the device, and loop through
-	# all remotes, and for any that have that device as
-	# their context, push them onto the remote's pending_out queue
-	# Usually there will be very few remotes at any given time,
-	# though there are expected to be a number of devices.
-{
-	my $devices = apps::myIOTServer::Device::getDevices();
-	for my $device (values %$devices)
-	{
-		if ($device->{pending_remote})
-		{
-			my $pending = shift @{$device->{pending_remote}};
-
-			while ($pending)
-			{
-				# display($dbg_wss+2,0,"WS_REMOTE dequeued DEVICE($device->{type}) pending_remote($pending)");
-				for my $remote (values %$remotes)
-				{
-					# display($dbg_wss+2,0,"WS_REMOTE device=$device->{uuid} remote_device=$remote->{device}->{uuid}");
-					# For some reason the mere presence of the above display line was giving
-					# a "invalid value for shared variable" error in Perl with the spiffs list,
-					# So I commented out all display's here for speed too ...
-
-					if ($remote->{device} && $device->{uuid} eq $remote->{device}->{uuid})
-					{
-						# display($dbg_wss+2,0,"WS_REMOTE($remote->{server_num}) enqueing $pending");
-						push @{$remote->{pending_out}},$pending;
-					}
-				}
-				$pending = shift @{$device->{pending_remote}};
-			}
-		}
-	}
-}
-
-
-
-sub handleWSRemote
+sub handle_ws_remote
 	# promoted to Websocket, handle comms from remote javascript UI
 {
 	my ($sock,$request) = @_;
@@ -208,16 +163,20 @@ sub handleWSRemote
 	$ws_server_num++;
 
 	my $server_num = $ws_server_num;
-	my $remote = shared_clone({});
-	$remote->{server_num} = $server_num;
-	$remote->{pending_out} = shared_clone([]);
-	$remote->{num_pings} = 0;
+	my $remote = shared_clone({
+		server_num => $server_num,
+		pending_out => shared_clone([]),
+		out_queue => Thread::Queue->new(),
+		num_pings => 0, });
 	$remotes->{$server_num} = $remote;
 
 	my $select = IO::Select->new();
 	$select->add($sock);
 
 	warning($dbg_wss,-1,"WS_REMOTE($server_num) starting");
+
+	$out_thread = threads->create(\&out_thread,$remote,$sock,$server_num);
+	$out_thread->detach();
 
 	# The loop will end under two conditions.
 	#
@@ -242,7 +201,7 @@ sub handleWSRemote
 			goto CLOSE_REMOTE;
 		}
 
-		if ($select->can_read(0.01))
+		if ($select->can_read($SELECT_TIME))
 		{
 			display($dbg_wss+2,-1,"WS_REMOTE($server_num) can_read()");
 
@@ -276,36 +235,20 @@ sub handleWSRemote
 
 					# call json processor
 
-					handleRemoteJson($sock,$server_num,$remote,$data);
-				}
-			}
-		}
-		elsif (@{$remote->{pending_out}})
-		{
-			my $pending = shift @{$remote->{pending_out}};
-			while ($pending)
-			{
-				display($dbg_wss+1,0,"WS_REMOTE($remote->{server_num}) dequeing $pending");
-				writeRemote($sock,$server_num,$pending);
-				$pending = shift @{$remote->{pending_out}};
-			}
-		}
-		else
-		{
-			# display($dbg_wss+2,-1,"WS_REMOTE($server_num) needs some kind of idle detection");
-			# TODO: this loop, and probably a similar one in WSLocal, is extremely greedy.
-			# Probably want to implement an active/idle timing scheme similar to the
-			# one implemented in HTTP::ServerBase to reduce overall service duty load.
+					handle_remote_json($sock,$server_num,$remote,$data);
 
-			sleep(0.1);
-
-		}
-	}
+				}	# while $data
+			}	# if $bytes
+		}	# can_read
+	}	# while (1)
 
 
 CLOSE_REMOTE:
 
 	warning($dbg_wss,-1,"WS_REMOTE($server_num) disconnected!!!!");
+
+	$remote->{out_queue}->insert(0,'TERMINATE');
+
 	delete $remotes->{$server_num};
 	$sock->close();
 	Pub::HTTP::ServerBase::endOpenRequest($request);
@@ -313,12 +256,10 @@ CLOSE_REMOTE:
 
 
 
-
-
-sub handleRemoteJson
+sub handle_remote_json
 {
 	my ($sock,$server_num,$remote,$json_text) = @_;
-	display($dbg_wss,-1,"WS_REMOTE($server_num) handleRemoteJson($json_text) device=" . ($remote->{device} ? $remote->{device}->{type} : "undef"));
+	display($dbg_wss,-1,"WS_REMOTE($server_num) handle_remote_json($json_text) device=" . ($remote->{device} ? $remote->{device}->{type} : "undef"));
 	my $json = decode_json($json_text);
 	if (!$json)
 	{
@@ -342,7 +283,7 @@ sub handleRemoteJson
 				my $text = encode_json($device->{cache});
 				display($dbg_wss+1,-1,"WS_REMOTE($server_num) device_list sending ".length($text)." bytes");
 
-				writeRemote($sock,$server_num,$text);
+				write_ws_remote($sock,$server_num,$text);
 			}
 			else
 			{
@@ -372,7 +313,7 @@ sub handleRemoteJson
 			}
 		}
 		$text = '{"device_list":[' . $text . ']}';
-		writeRemote($sock,$server_num,$text);
+		write_ws_remote($sock,$server_num,$text);
 	}
 	elsif ($remote->{device})
 	{
@@ -380,6 +321,143 @@ sub handleRemoteJson
 		$remote->{device}->writeLocal($json_text);
 	}
 }
+
+
+#-------------------------------------------------
+# lower level utilities
+#-------------------------------------------------
+
+sub write_ws_remote
+{
+	my ($sock,$server_num,$buf) = @_;
+	display($dbg_wss+1,0,"WS_REMOTE($server_num) write_ws_remote(".length($buf).")");
+	my $frame = Protocol::WebSocket::Frame->new(buffer => $buf);
+	my $data = $frame->to_bytes();
+	$sock->write($data);
+	# my $len = length($data);
+	# my $fileno = fileno $sock
+	# display($dbg_wss+1,1,"sock($sock) fileno($fileno) frame length=$len");
+	# my $select = IO::Select->new($sock);
+	# my $can_read = $select->can_read(0.001) ? 1 : 0;
+	# my $can_write = $select->can_write(0.001) ? 1 : 0;
+	# my $exception = $select->has_exception (0.001) ? 1 : 0;
+	# my $pending = $sock->pending() || 0;
+	# display(0,0,"pending($pending) can_read($can_read) can_write($can_write) exception($exception)");
+	# my $rslt = syswrite($sock,$data,$len);
+	# display($dbg_wss+1,1,"writeRemote() wrote($rslt/$len) bytes");
+}
+
+
+sub out_thread
+	# started for each socket, dequeues straight
+	# message from the remote's out_queue and writes
+	# to the client socket.
+{
+	my ($remote,$sock,$server_num) = @_;
+	display($dbg_wss,0,"WSRemote::out_thread($server_num) started");
+	while (1)
+	{
+		my $pending = $remote->{out_queue}->dequeue();
+		goto END_OUT_THREAD if $pending eq 'TERMINATE';
+		while ($pending)
+		{
+			display($dbg_wss+1,0,"QUEUE WS_REMOTE($remote->{server_num}) dequeued "._lim($pending,40));
+			write_ws_remote($sock,$server_num,$pending);
+			$pending = $remote->{out_queue}->dequeue_nb();
+			goto END_OUT_THREAD if $pending && $pending eq 'TERMINATE';
+		}
+	}
+
+END_OUT_THREAD:
+	display($dbg_wss,0,"WSRemote::out_thread($server_num) terminating");
+
+}
+
+
+sub in_thread
+	# the thread for the input queue handling
+	# dequeues global device:msgs requests and
+	# re-enques them on the out_queue of any
+	# remotes looking at that device.
+{
+	display($dbg_wss,0,"WSRemote::in_thread() started");
+
+	while (1)
+	{
+		my $packet = $in_queue->dequeue();
+		goto END_IN_THREAD if $packet->{msg} eq 'TERMINATE';
+
+		while ($packet)
+		{
+			my $msg = $packet->{msg};
+			my $device = $packet->{device};
+			if ($msg)
+			{
+				display($dbg_wss+1,0,"in_thread requeuing($device->{uuid}) "._lim($msg,40));
+				for my $remote (values %$remotes)
+				{
+					$remote->{out_queue}->enqueue($msg)
+						if $remote->{device} &&
+						   $device->{uuid} eq $remote->{device}->{uuid};
+				}
+			}
+			$packet = $in_queue->dequeue_nb();
+			goto END_IN_THREAD if $packet && $packet->{msg} eq 'TERMINATE';
+		}
+	}
+END_IN_THREAD:
+
+	display($dbg_wss,0,"WSRemote::in_thread() terminating");
+}
+
+
+
+#--------------------------------------------------
+# API - called from Device.pm
+#--------------------------------------------------
+
+sub enqueueIn
+	# public
+	# called by the device to send a message to all wSRemotes
+	# that *might* be connected to it. use undef,'TERMINATE',1
+	# to stop the in_thread();
+{
+	my ($device,$msg,$at_start) = @_;
+	$at_start ||= 0;
+	display($dbg_wss+1,0,"eneuqueIn($at_start,".($device?$device->{type}:'undef')." )msg="._lim($msg,40));
+	my $packet = shared_clone({
+		device => $device,
+		msg	   => $msg });
+	$at_start ?
+		$in_queue->enqueue($packet) :
+		$in_queue->insert(0,$packet);
+}
+
+
+
+sub removeDeviceQueue
+	# public
+	# called by device when it goes offline.
+	# effectively remove a device from the queue
+	# by setting all of it's msgs, if any, to ''
+{
+	my ($remove_device) = @_;
+	my $uuid = $remove_device->{uuid};
+	display($dbg_wss,0,"removeDeviceQueue($uuid)");
+
+	my $index = 0;
+	my $packet = $in_queue->peek($index++);
+	while ($packet)
+	{
+		my $device = $packet->{device};
+		$packet->{msg} = '' if
+			$device &&
+			$device->{uuid} eq $uuid;
+		$packet = $in_queue->peek($index++);
+	}
+
+}
+
 
 
 

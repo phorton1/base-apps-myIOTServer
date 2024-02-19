@@ -4,6 +4,10 @@
 #-----------------------------------------------------
 # WSLocal is the object that handles persistent
 # WebSocket connections to local myIOT devices.
+#
+# There is a zero or one to one correspondence
+# of these WSLocal's with Devices.
+#
 # It works in conjunction with Devices and
 # the WSRemote to channel requests between external
 # remote WSS javascript clients and local IOT devics.
@@ -13,13 +17,15 @@ use strict;
 use warnings;
 use threads;
 use threads::shared;
+use Thread::Queue;
 use Pub::Utils;
 use Pub::Prefs;
 use IO::Select;
 use Protocol::WebSocket::Client;
 
-my $CLIENT_PING_INTERVAL = 15;
-my $CLIENT_PING_TIMEOUT = 7;
+
+my $dbg_local = 0;
+my $dbg_ping = 1;
 
 
 BEGIN
@@ -30,105 +36,83 @@ BEGIN
 }
 
 
-my $dbg_local = 0;
-my $dbg_ping = 1;
+my $SELECT_TIME = 2;
+my $CLIENT_PING_INTERVAL = 15;
+my $CLIENT_PING_TIMEOUT = 7;
 
-my $client_num = 0;
-my $clients = {};
+
 
 my $stopping:shared = 0;
+my $local_num:shared = 1;
+my $local_websockets = shared_clone({});
+my $local_thread;
+my $out_thread;
 
 
 
-sub writeSocket
+#-----------------------------------------------
+# start and stop API from myIOTServer.pm
+#-----------------------------------------------
+
+
+sub start()
 {
-	my ($client_num,$msg) = @_;
-	display($dbg_local,0,"WS_LOCAL($client_num,$clients->{$client_num}->{device}->{type}) writeSocket($msg)");
-	$clients->{$client_num}->write($msg);
-	return;
-}
-
-sub onWrite
-{
-	my ($a_client,$buf) = @_;
-	display($dbg_local+1,0,"WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) onWrite() bytes=".length($buf));
-	syswrite($a_client->{ws_socket}, $buf);
-}
-
-sub onRead
-{
-    my ($a_client,$buf) = @_;
-	if ($buf eq '{"pong":1}')
-	{
-		display($dbg_ping,0,"WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) got pong");
-		$a_client->{ping_time} = 0;
-		$a_client->{pong_time} = time();
-		$a_client->{pong_count}++;
-		return;
-	}
-	display($dbg_local+1,0,"WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) onRead() bytes=".length($buf));
-	# print $buf."\n";
-	$a_client->{device}->onLocal($buf);
+	display($dbg_local,0,"WSLocal::start()");
 }
 
 
-sub onConnect
+sub stop()
 {
-	my ($a_client) = @_;
-	warning($dbg_local,0,"WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) onConnect()");
-
-	# send the standard setup requests to the device
-	# to build the in-memory read-thru cache
-
-	$a_client->write('{"cmd":"device_info"}');
-	$a_client->write('{"cmd":"value_list"}');
-	$a_client->write('{"cmd":"spiffs_list"}');
-	$a_client->write('{"cmd":"sdcard_list"}');
+	display($dbg_local,0,"WSLocal::stop()");
+	$stopping = 1;
 }
 
 
-sub onEOF
-{
-	my ($a_client) = @_;
-	error("WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) onEOF)");
-}
 
-sub onError
-{
-	my ($a_client,$error) = @_;
-	error("WS_LOCAL($a_client->{client_num},$a_client->{device}->{type}) onError=$error)");
-}
-
-
+#----------------------------------------------------
+# entry point from device
+#----------------------------------------------------
 
 sub open
 {
 	my ($device) = @_;
-	$client_num++;
+	display($dbg_local,0,"WSLocal::open device($local_num,$device->{type}) $device->{uuid}");
 
+	my $local_ws = shared_clone({
+		num => $local_num,
+		device => $device,
+		out_queue => Thread::Queue->new(), });
+
+	$local_websockets->{$local_num++} = $local_ws;
+	$local_thread = threads->create(\&local_thread,$local_ws);
+	$local_thread->detach();
+}
+
+
+sub local_thread
+{
+	my ($local_ws) = @_;
+	my $device = $local_ws->{device};
+	my $local_num = $local_ws->{num};
 	my $ip = $device->{ip};
-	my $port = $device->{port};
-
-	display($dbg_local,0,"WS_LOCAL::open($client_num) to $device->{type} at $ip:".($port+1));
-	$port += 1;
+	my $port = $device->{port}+1;
+	display($dbg_local,0,"WS_LOCAL($local_num) local_thread($device->{type}) $device->{uuid} at $ip:$port");
 
 	my $ws_client = Protocol::WebSocket::Client->new(
 		url => "ws://#ip:$port");
 
-
 	if (!$ws_client)
 	{
 		error("Could not open ws_client(ws:://$ip:$port)");
-		$device->onClose();
 		return;
 	}
-	display($dbg_local+2,1,"WS_LOCAL::open($client_num) client_created $ws_client");
+	display($dbg_local+2,1,"WS_LOCAL::open($local_num) client_created $ws_client");
 
-	$ws_client->on( write => \&onWrite );
-	$ws_client->on( read => \&onRead );
-	$ws_client->on( connect => \&onConnect );
-	$ws_client->on( eof => \&onEOF );
-	$ws_client->on( error => \&onError );
+	$ws_client->on( write => \&on_write );
+	$ws_client->on( read => \&on_read );
+	$ws_client->on( connect => \&on_connect );
+	$ws_client->on( eof => \&on_eof );
+	$ws_client->on( error => \&on_error );
 
 	# open the socket with the protcol in place
 
@@ -140,124 +124,183 @@ sub open
 
 	if (!$ws_socket)
 	{
-		$device->onClose();
 		error("Could not open ws_socket($ip:$port)");
 		return;
 	}
-	display($dbg_local+2,1,"WS_LOCAL::open($client_num) socket opened $ws_socket");
+	display($dbg_local+2,1,"WS_LOCAL::open($local_num) socket opened $ws_socket");
 
 	$ws_client->{ws_socket} = $ws_socket;
 	$ws_client->{device} = $device;
-	$ws_client->{client_num} = $client_num;
+	$ws_client->{local_num} = $local_num;
 	$ws_client->{pong_time} = time();
 	$ws_client->{ping_time} = 0;
 	$ws_client->{pong_count} = 0;
 
-	$clients->{$client_num} = $ws_client;
+	$out_thread = threads->create(\&out_thread,$local_ws,$ws_client);
+	$out_thread->detach();
 
-	$device->onOpen($client_num);
-
+	$device->onOpen($local_num);
 	$ws_client->connect();
 
-	display($dbg_local+1,1,"WS_LOCAL($client_num) opened to $device->{type} at $ip:".($port+1));
-	# display(0,0,"client=$ws_client");
-	return $client_num;
-}
+	display($dbg_local+1,1,"WS_LOCAL($local_num) opened to $device->{type} at $ip:".($port+1));
 
-
-
-
-sub loop()
-{
-	return if $stopping;
-
-	my $tm = time();
 	my $select = IO::Select->new();
-	for my $client (values %$clients)
+	$select->add($ws_socket);
+
+	while (1)
 	{
-		# ping timeout
+		goto END_LOCAL_THREAD if $stopping;
 
-		if ($client->{ping_time} &&
-			$tm > $client->{ping_time} + $CLIENT_PING_TIMEOUT)
+		if ($select->can_read($SELECT_TIME))
 		{
-			warning(0,-1,"WS_LOCAL($client->{client_num},$client->{device}->{type}) PING TIMEOUT after $client->{pong_count} pongs!");
-			$client->{ping_time} = 0;
-			$client->{pong_count} = 0;
-
-			$client->disconnect();
-			$client->{device}->onClose();
-			delete $clients->{$client->{client_num}};
-			return if $stopping;
-			next;
+			my $buf;
+			my $bytes = sysread $ws_socket, $buf, 16384;
+			goto END_LOCAL_THREAD if $stopping;
+			if ($bytes)
+			{
+				display($dbg_local+1,0,"got $bytes bytes for WS_REMOTE($local_num)");
+				$ws_client->read($buf);
+			}
+		}
+		if ($ws_client->{ping_time} &&
+			time() > $ws_client->{ping_time} + $CLIENT_PING_TIMEOUT)
+		{
+			warning(0,-1,"WS_LOCAL($local_num),$device->{type}) PING TIMEOUT after $ws_client->{pong_count} pongs!");;
+			goto END_LOCAL_THREAD;
 		}
 
 		# send a ping
 
 		elsif (!$stopping &&
-			   !$client->{ping_time} &&
-			   $tm > $client->{pong_time} + $CLIENT_PING_INTERVAL)
+			   !$ws_client->{ping_time} &&
+			   time() > $ws_client->{pong_time} + $CLIENT_PING_INTERVAL)
 		{
-			display($dbg_ping,0,"WS_LOCAL($client->{client_num},$client->{device}->{type}) Sending ping at $tm");
-			$client->{ping_time} = $tm;
-			$client->write('{"cmd":"ping"}');
-		}
-
-		return if $stopping;
-		$select->add($client->{ws_socket});
-	}
-
-	return if $stopping;
-
-	my @handles = $select->can_read(0.01);
-	for my $handle (@handles)
-	{
-		my $buf;
-		my $bytes = sysread $handle, $buf, 16384;
-		return if $stopping;
-		if ($bytes)
-		{
-			display($dbg_local+1,0,"got $bytes bytes for handle($handle)");
-			for my $client (values %$clients)
-			{
-				if ($client->{ws_socket} == $handle)
-				{
-					display($dbg_local+1,0,"dispatching $bytes bytes to webSocket($client->{client_num},$client->{device}->{type})");
-					return if $stopping;
-					$client->read($buf);
-					last;
-				}
-			}
+			my $tm = time();
+			display($dbg_ping,0,"WS_LOCAL($local_num,$device->{type}) Sending ping at $tm");
+			$ws_client->{ping_time} = $tm;
+			$ws_client->write('{"cmd":"ping"}');
 		}
 	}
+
+
+END_LOCAL_THREAD:
+
+	display($dbg_local,0,"WS_LOCAL($local_num) local_thread() terminating");
+	$local_websockets->{$local_num}->insert(0,'TERMINATE');
+	delete $local_websockets->{$local_num};
+	$ws_client->{ping_time} = 0;
+	$ws_client->{pong_count} = 0;
+	$ws_client->disconnect();
+	$ws_client->{device}->onClose();
+
 }
 
 
-
-# Trying to solve problem that shutting down the rPi basically
-# hangs devices as they cannot send to the websocket.
-
-
-sub stop()
+sub on_write
 {
-	LOG(0,"Stopping WSLocal ...");
-	$stopping = 1;
-
-	for my $ws_num (keys %$clients)
-	{
-		my $client = $clients->{$ws_num};
-		my $name = $client->{device} ? $client->{device}->{type} : 'unknown dewvice';
-		LOG(0,"stopping($ws_num) device($name)");
-		# display(0,0,"client=$client");
-		$client->{device}->onClose(1) if $client->{device};
-		undef $client->{device};
-		# $client->{ws_socket}->close() if $client->{ws_socket};
-		undef $client->{ws_socket};
-		undef($client);
-		delete $clients->{$ws_num};
-	}
-	LOG(0,"WSLocal stopped");
-	$stopping = 0;
+	my ($ws_client,$buf) = @_;
+	display($dbg_local+1,0,"WS_LOCAL($ws_client->{local_num},$ws_client->{device}->{type}) on_write() bytes=".length($buf));
+	syswrite($ws_client->{ws_socket}, $buf);
 }
+
+sub on_read
+{
+    my ($ws_client,$buf) = @_;
+	if ($buf eq '{"pong":1}')
+	{
+		display($dbg_ping,0,"WS_LOCAL($ws_client->{local_num},$ws_client->{device}->{type}) got pong");
+		$ws_client->{ping_time} = 0;
+		$ws_client->{pong_time} = time();
+		$ws_client->{pong_count}++;
+		return;
+	}
+	display($dbg_local+1,0,"WS_LOCAL($ws_client->{local_num},$ws_client->{device}->{type}) on_read() bytes=".length($buf));
+	# print $buf."\n";
+	$ws_client->{device}->onLocal($buf);
+}
+
+
+sub on_connect
+{
+	my ($ws_client) = @_;
+	warning($dbg_local,0,"WS_LOCAL($ws_client->{local_num},$ws_client->{device}->{type}) on_connect()");
+
+	# send the standard setup requests to the device
+	# to build the in-memory read-thru cache
+
+	$ws_client->write('{"cmd":"device_info"}');
+	$ws_client->write('{"cmd":"value_list"}');
+	$ws_client->write('{"cmd":"spiffs_list"}');
+	$ws_client->write('{"cmd":"sdcard_list"}');
+}
+
+
+sub on_eof
+{
+	my ($ws_client) = @_;
+	error("WS_LOCAL($ws_client->{client_num},$ws_client->{device}->{type}) on_eof");
+}
+
+sub on_error
+{
+	my ($ws_client,$error) = @_;
+	error("WS_LOCAL($ws_client->{local_num},$ws_client->{device}->{type}) on_error=$error)");
+}
+
+
+#-----------------------------------
+# out_thread
+#-----------------------------------
+
+
+sub out_thread
+	# started for each socket, dequeues straight
+	# message from the remote's out_queue and writes
+	# to the client socket.
+{
+	my ($local_ws,$ws_client) = @_;
+	my $local_num = $local_ws->{num};
+	display($dbg_local,0,"WSLocal::out_thread($local_num) started");
+	while (1)
+	{
+		my $pending = $local_ws->{out_queue}->dequeue();
+		goto END_OUT_THREAD if $pending eq 'TERMINATE';
+		while ($pending)
+		{
+			display($dbg_local+1,0,"WS_LOCAL($local_num) dequeued "._lim($pending,40));
+			$ws_client->write($pending);
+			$pending = $local_ws->{out_queue}->dequeue_nb();
+			goto END_OUT_THREAD if $pending && $pending eq 'TERMINATE';
+		}
+	}
+
+END_OUT_THREAD:
+	display($dbg_local,0,"WSLocal::out_thread($local_num) terminating");
+
+}
+
+
+
+#-----------------------------------
+# API
+#-----------------------------------
+
+sub enqueueOut
+{
+	my ($local_num,$msg) = @_;
+	display($dbg_local,0,"WS_LOCAL($local_num) writeLocal()"._lim($msg,40));
+	my $local_ws = $local_websockets->{$local_num};
+	if ($local_ws)
+	{
+		$local_ws->{out_queue}->enqueue($msg);
+	}
+	else
+	{
+		error("Could not find local_websocket($local_num)");
+	}
+
+}
+
 
 
 1;

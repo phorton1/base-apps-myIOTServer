@@ -90,16 +90,15 @@ sub stopEverything
 
 	LOG(-1,"Stopping WSRemote");
 	apps::myIOTServer::WSRemote::stop();
-	LOG(-1,"WSRemote STOPPED");
 
-	LOG(-1,"Stopping WSRemote");
+	LOG(-1,"Stopping WSLocal");
 	apps::myIOTServer::WSLocal::stop();
-	LOG(-1,"WSRemote STOPPED");
 }
 
 
 sub startEverything
 {
+	apps::myIOTServer::WSLocal::start();	# nop
 	apps::myIOTServer::WSRemote::start();
 
 	# Should be a check on the success of starting the HTTPS server
@@ -190,19 +189,19 @@ sub on_loop
 		else
 		{
 			stopEverything();
-			sleep(5);
+			# sleep(5);
 		}
 	}
+
+	# we check once a second for devices that
+	# to need to be reconnected (WS_LOCAL)
+
 	elsif ($last_connected)	# greedy
 	{
-		# not threaded port forwarder
-		# apps::myIOTServer::PortForwarder::loop()
-		# TODO: These should all be threaded, with appropriate select/blocking
-
 		apps::myIOTServer::Device::loop();
-		apps::myIOTServer::WSLocal::loop();
-		apps::myIOTServer::WSRemote::loop();
 	}
+
+	# and every so often we output the memrory
 
 	my $now = time();
 	if ($MEMORY_REFRESH && ($now > $memory_time + $MEMORY_REFRESH))
@@ -210,6 +209,9 @@ sub on_loop
 		$memory_time = $now;
 		debug_memory("in loop");
 	}
+
+	# and 5 seconds after $do_restart is set,
+	# we restart ...
 
 	if ($do_restart && time() > $do_restart + 5)
 	{
@@ -220,15 +222,24 @@ sub on_loop
 }
 
 
+
+sub on_terminate()
+{
+	stopEverything();
+	sleep(1);
+	return 0;
+}
+
+
 # Uses 10% of Windows machine, probably 30% of rPi
 
 Pub::ServiceMain::main_loop({
 	MAIN_LOOP_CONSOLE => 1,
-	MAIN_LOOP_SLEEP => 0,		# GREEDY - most programs use 0.2,
-	MAIN_LOOP_CB_TIME => 0,		# most programs use 1 minimum
+	MAIN_LOOP_SLEEP => 0.2,		# most programs use 0.2,
+	MAIN_LOOP_CB_TIME => 1,		# most programs use 1 minimum
 	MAIN_LOOP_CB => \&on_loop,
 	# MAIN_LOOP_KEY_CB => \&on_console_key,
-	# MAIN_LOOP_TERMINATE_CB => \&on_terminate,
+	MAIN_LOOP_TERMINATE_CB => \&on_terminate,
 });
 
 
