@@ -64,11 +64,8 @@ sub handle_request
 		my $kind = $1;
 		display_hash($dbg_fwd+1,-1,"headers",$request->{headers});
 		my $uuid = $request->{headers}->{'x-myiot-deviceuuid'};
-		if (!$uuid)
-		{
-			error("No UUID header in $kind $request->{method} request");
-			return undef;
-		}
+		return http_error($request,"No UUID header in $kind $request->{method} request")
+			if !$uuid;
 		$response = forwardRequest($client,$request,$kind,$uuid);
 	}
 	elsif ($method eq 'GET' &&
@@ -77,13 +74,10 @@ sub handle_request
 		 $uri =~ /^\/(spiffs)\//)
 	{
 		my $kind = $1;
-		my $uuid = $request->{uri} =~ s/\?uuid=(.*)$// ? $1 : '';
-		if (!$uuid)
-		{
-			error("No UUID header in $kind $request->{method} request");
-			return undef;
-		}
-
+		my $params = $request->{params};
+		my $uuid = $params->{uuid};
+		return http_error($request,"No UUID header in $kind $request->{method} request")
+			if !$uuid;
 		$response = forwardRequest($client,$request,$kind,$uuid);
 	}
 
