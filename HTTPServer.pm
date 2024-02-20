@@ -166,8 +166,8 @@ sub handle_request
 		$text =~ s/\n/<br>/g;
 		if ($rslt == $GIT_UPDATE_DONE)
 		{
-			$line1 .= "- restarting service in 5 seconds";
-			LOG(0,"restarting service in 5 seconds");
+			$line1 .= "- restarting service";
+			LOG(0,"restarting service");
 			$apps::myIOTServer::myIOTServer::do_restart = time();
 		}
 		$response = html_ok($request,$line1."<br>".$text);
