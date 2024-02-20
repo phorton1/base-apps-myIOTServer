@@ -139,6 +139,8 @@ display($dbg_main,0,"----------------------------------------------");
 display($dbg_main,0,"$program_name.pm starting");
 display($dbg_main,0,"----------------------------------------------");
 
+$SIG{CHLD} = 'DEFAULT' if !is_win();
+
 
 Pub::Prefs::initPrefs(
 	"$data_dir/$program_name.prefs",
