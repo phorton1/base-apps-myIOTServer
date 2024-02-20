@@ -27,12 +27,12 @@ const VALUE_STORE_PROG     = 0x00;      // only in ESP32 memory
 const VALUE_STORE_NVS      = 0x01;      // stored/retrieved from NVS
 const VALUE_STORE_WS       = 0x02;      // broadcast to / received from WebSockets
 const VALUE_STORE_MQTT_PUB = 0x04;      // published/subscribed to on (the) MQTT broker
-const VALUE_STORE_MQTT_SUB = 0x08;      // published/subscribed to on (the) MQTT broker
+const VALUE_STORE_SUB      = 0x08;      // published/subscribed to on (the) MQTT broker
 const VALUE_STORE_DATA     = 0x10;      // history stored/retrieved from SD database
 const VALUE_STORE_SERIAL   = 0x40;
 
 const VALUE_STORE_PREF     = (VALUE_STORE_NVS | VALUE_STORE_WS);
-const VALUE_STORE_TOPIC    = (VALUE_STORE_MQTT_PUB | VALUE_STORE_MQTT_SUB);
+const VALUE_STORE_TOPIC    = (VALUE_STORE_MQTT_PUB | VALUE_STORE_SUB);
 
 const VALUE_STYLE_NONE       = 0x0000;      // no special styling
 const VALUE_STYLE_READONLY   = 0x0001;      // Value may not be modified
@@ -41,7 +41,7 @@ const VALUE_STYLE_PASSWORD   = 0x0004;      // displayed as '********', protecte
 const VALUE_STYLE_TIME_SINCE = 0x0008       // ui shows '23 minutes ago' in addition to the time string
 const VALUE_STYLE_VERIFY     = 0x0010;      // UI buttons will display a confirm dialog
 const VALUE_STYLE_LONG       = 0x0020;      // UI will show a long (rather than default 15ish) String Input Control
-const VALUE_STYLE_OFF_ZERO   = 0x0040;      // Allows 0 below min and displays it as "OFF"
+const VALUE_STYLE_OFF_ZERO   = 0x0040;      // zero is semantically equal to OFF
 const VALUE_STYLE_RETAIN     = 0x0100;      // MQTT if published, will be "retained"
 
 
@@ -52,6 +52,7 @@ var web_socket;
 var ws_connect_count = 0;
 var ws_open_count = 0;
 var device_name = '';
+var device_url = '';
 var device_uuid = '';
 var device_has_sd = 0;
 var device_list;
@@ -419,10 +420,11 @@ function handleWS(ws_event)
     {
         device_name = obj.device_name;
         device_uuid = obj.uuid;
+        device_url = obj.device_url;
         console.log("device_name=" + device_name + " device_uuid=$uuid");
         if (!is_server)
             document.title = device_name;
-        $('#DEVICE_NAME').html(device_name);
+        $('#DEVICE_NAME').html('<a href="' + device_url + '" class="my_device_link" target="_blank">' + device_name + "</a>");
         device_has_sd = parseInt(obj.has_sd);
             // cache the value of the has_sd for use in
             // value_list fillTables() method.
@@ -593,13 +595,6 @@ function addInput(item)
         is_number ? "number" :   //  && !(item.style & VALUE_STYLE_OFF_ZERO) ? 'number' :
         'text'
 
-    // My modified spinner renders 0 as off for those with class "off_zero"
-    // So we go ahead and morph the value "off" to zero here.
-    // Without the modified spinner "off" is not supported anyways (but 0 works consistently)
-
-    if (item.style & VALUE_STYLE_OFF_ZERO && item.value == "off")
-        item.value = 0;
-
     var input = $('<input>')
         .addClass(item.id)
         .addClass('myiot')
@@ -614,21 +609,15 @@ function addInput(item)
             'data-min' : item.min,
         });
 
-    // for OFF_ZERO we set the min to zero, skip during incs/decs,
-    // and enforce it via the data-min in our onchange
-
-    var use_min = item.min;
     if (item.style & VALUE_STYLE_OFF_ZERO)
-    {
-        use_min = 0;
         input.addClass('off_zero');
-    }
+
     if (item.style & VALUE_STYLE_LONG)
         input.attr({size:80});
 
     if (is_number)
         input.attr({
-            min: is_bool ? 0 : use_min,
+            min: is_bool ? 0 : item.min,
             max: is_bool ? 1 : item.max
         })
     if (item.type == VALUE_TYPE_FLOAT)
@@ -687,9 +676,11 @@ function addButton(item)
 }
 
 
-function addItem(tbody,item)
+
+
+function addItem(obj,tbody,item)
 {
-    var ele;
+    var ele,td_ele;
 
     if (item.type == VALUE_TYPE_COMMAND)
         ele = addButton(item);
@@ -702,6 +693,21 @@ function addItem(tbody,item)
     else
         ele = addInput(item);
 
+    var td_ele = $('<td />').append(ele);
+
+    if (obj.tooltips)
+    {
+        var text = obj.tooltips[item.id];
+        if (text)
+        {
+            ele.attr({
+                'data-bs-toggle' : 'tooltip',
+                'data-bs-html' : true,
+                'data-bs-placement':'right',
+                'title' : text });
+        }
+    }
+
     tbody.append(
         $('<tr />').append(
             $('<td />').text(item.id),
@@ -709,7 +715,7 @@ function addItem(tbody,item)
 }
 
 
-function fillTable(values,ids,tbody)
+function fillTable(obj,values,ids,tbody)
     // prh - should hide empty tabs
 {
     tbody.empty();
@@ -718,7 +724,7 @@ function fillTable(values,ids,tbody)
     ids.forEach(function (id) {
         var item = values[id];
         if (item)
-            addItem(tbody,item);
+            addItem(obj,tbody,item);
         else
             myAlert("Uknown item_id in fillTable " + tbody.id + ": " + id);
 
@@ -734,9 +740,9 @@ function fillTables(obj)
 {
     $('#device_status').html('');
 
-    fillTable(obj.values,obj.device_items,$('table#device_table tbody'));
-    fillTable(obj.values,obj.config_items,$('table#config_table tbody'));
-    fillTable(obj.values,obj.dash_items,$('table#dashboard_table tbody'));
+    fillTable(obj,obj.values,obj.device_items,$('table#device_table tbody'));
+    fillTable(obj,obj.values,obj.config_items,$('table#config_table tbody'));
+    fillTable(obj,obj.values,obj.dash_items,$('table#dashboard_table tbody'));
 
     // At this point a new device has been loaded ...
     // We do the general enable/disable stuff here.
@@ -770,34 +776,14 @@ function fillTables(obj)
             $('#dashboard_button').click();
     }
 
-    // change all my numeric inputs to the bootstrap-inner-spinner.js thing
-    // without groupings ... see iotCommon.css
+    // Enable tooltips on any controls that have them
 
-    if(jQuery().inputSpinner)
-    {
-        console.log("Setting up spinner")
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
 
-        // $("input[data-style=" + VALUE_STYLE_OFF_ZERO + "]")
-        $("input[type='number']")
-            .addClass('my_spinner_input')
-            .attr({
-               'data-digit-grouping':false })
-            .inputSpinner({
-                textAlign : 'left',
-                groupClass : 'my_spinner_div',
-                buttonsWidth : '1rem',
-                buttonsClass : 'btn-outline-secondary my_spinner_btn' });
-    }
 
-    // we reset the value to the data-value here,
-    // after creating the spinner, so that 'off'
-    // will show for zero.
-
-    //$("input[type='number']")
-    //    .attr({
-    //       'data-digit-grouping':false,
-    //       value:$(this).attr('data-value') })
-    //
     console.log("done finishing up")
 }
 

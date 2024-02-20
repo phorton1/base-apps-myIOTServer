@@ -20,14 +20,19 @@
     color: #00eeee;
 }
 
+/* make switches inline-block so that tooltips showup to right of them */
+
+.form-check
+{
+    display:inline-block;
+}
+
 /* Add a 'my_switch' class that doubles the size of the
  * bootstrap switches. I copied these three chunks from
  * bootstrap.css, doubled all the 'em' constants, added
  * a 2em height, doubled the viewbox sizes from -4 -4 8 8,
  * and the radii from 3 to 6.  I won't claim to understand
  * how it works. Commented items are not size related. */
-
-/* margin-left: -5em; */
 
 .my_switch.form-switch .my_switch.form-check-input
 {
@@ -50,42 +55,11 @@
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-8 -8 16 16'%3e%3ccircle r='6' fill='%23fff'/%3e%3c/svg%3e");
 }
 
-.my_spinner_div
+
+/* make the device name link white */
+
+.my_device_link
 {
-    padding:0;
-    width:9rem;
+    color: #ffffff;
+    text-decoration:none;
 }
-.my_spinner_btn
-{
-    padding:0;
-    padding-bottom:0.25rem;
-    width:1rem;
-    height:1.75rem;
-    font-weight:800;
-}
-.my_spinner_input
-{
-    padding:0;
-    padding-left:0.5rem;
-    height:1.75rem;
-}
-
-
-
-/* chart stuff
-
-.ct-series-a .ct-line,
-.ct-series-a .ct-point
-{
-    stroke: blue;
-    stroke-width: 2px;
-}
-
-.ct-series-b .ct-line,
-.ct-series-b .ct-point
-{
-    stroke: green;
-    stroke-width: 2px;
-}
-
-*/
