@@ -82,7 +82,7 @@ function onDashboardFunction()
     var text = this.responseText;
     text = text + "\n>>>" + dashboard_url + "done\n";
     if (dashboard_url == '/reboot')
-        seconds = 15;
+        seconds = 30;
     if (dashboard_url == '/server/restart')
         seconds = 5;
     if (seconds)
