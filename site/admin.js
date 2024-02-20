@@ -148,7 +148,7 @@ function onUpdateResult()
     if (text.startsWith('GIT_UPDATE_DONE'))
     {
         text = text + "\n>>> Update done - reloading page in 5 seconds <<<\n";
-        $('#status2').html("reload in " + seconds);
+        $('#status2').html("reload in 5 seconds");
         setTimeout(reload_page,5000);
     }
     else
