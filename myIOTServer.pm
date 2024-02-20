@@ -215,10 +215,10 @@ sub on_loop
 		debug_memory("in loop");
 	}
 
-	# and 5 seconds after $do_restart is set,
-	# we restart ...
+	# wait a second after $do_restart is set,
+	# to restart the linux service
 
-	if ($do_restart && time() > $do_restart + 5)
+	if ($do_restart && time() > $do_restart + 1)
 	{
 		$do_restart = 0;
 		LOG(0,"RESTARTING SERVICE");

@@ -82,9 +82,9 @@ function onDashboardFunction()
     var text = this.responseText;
     text = text + "\n>>>" + dashboard_url + "done\n";
     if (dashboard_url == '/reboot')
-        seconds = 60;
+        seconds = 45;
     if (dashboard_url == '/server/restart')
-        seconds = 20;
+        seconds = 15;
     if (seconds)
     {
         text = text + "Reloading in " + seconds + " seconds\n";
@@ -129,7 +129,7 @@ function onUpdateResult()
     if (text.startsWith('GIT_UPDATE_DONE'))
     {
         text = text + "<br>\n>>> Update done - reloading page in 20 seconds <<<<br>";
-        reloadIn(20);
+        reloadIn(15);
     }
     else
     {

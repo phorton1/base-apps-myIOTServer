@@ -95,11 +95,11 @@ sub handle_request
 	elsif ($uri eq '/server/restart')
 	{
 		my $what = $1;
-		my $msg = "myIOTServer restarting the myIOTServer.service in 5 seconds";
+		my $msg = "Restarting the service";
 		LOG(0,$msg);
 		no warnings 'once';
 		$apps::myIOTServer::myIOTServer::do_restart = time();
-		$response = http_ok($request,200,$msg);
+		$response = http_ok($request,$msg);
 	}
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
 	{
