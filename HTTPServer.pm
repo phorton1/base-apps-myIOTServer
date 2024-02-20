@@ -163,16 +163,14 @@ sub handle_request
 			$do_stash,
 			['/base/Pub','/base/apps/myIOTServer']);
 		my $line1 = git_result_to_text($rslt);
-		my $sep = "\n";
+		$text =~ s/\n/<br>/g;
 		if ($rslt == $GIT_UPDATE_DONE)
 		{
 			$line1 .= "- restarting service in 5 seconds";
-			$sep = "<br>";
-			$text =~ s/\n/<br>/g;
 			LOG(0,"restarting service in 5 seconds");
 			$apps::myIOTServer::myIOTServer::do_restart = time();
 		}
-		$response = html_ok($request,$line1.$sep.$text);
+		$response = html_ok($request,$line1."<br>".$text);
 	}
 
 	#---------------------------------------------------------

@@ -1,6 +1,9 @@
+//--------------------------------------------
+// admin.js
+//--------------------------------------------
+// simple js included in admin.html
+
 var cur_button = 'dashboard_button';
-
-
 
 function onTab(event)
     // triggered when the user changes tabs in the UI
@@ -14,6 +17,149 @@ function onTab(event)
 }
 
 
+//---------------------------------
+// log files
+//---------------------------------
+
+function logfile(what)
+{
+    $('#status2').html(what);
+    httpRequest(what,onLogReceived,httpError,httpTimeout);
+}
+function onLogReceived()
+{
+    $('#logfile_content').html(this.responseText);
+    setTimeout(function () {
+        window.scroll({
+            top: $('#logfile_div')[0].scrollHeight,
+            left: 0,
+            behavior: 'auto'    // smooth'
+          });
+    },100);
+}
+
+function fs_logfile(what)
+{
+    $('#status2').html(what);
+    httpRequest('file_server' + what,onFSLogReceived,httpError,httpTimeout);
+}
+function onFSLogReceived()
+{
+    $('#fs_logfile_content').html(this.responseText);
+    setTimeout(function () {
+        window.scroll({
+            top: $('#fs_logfile_div')[0].scrollHeight,
+            left: 0,
+            behavior: 'auto'    // smooth'
+          });
+    },100);
+}
+
+
+//---------------------------------
+// reboot and restart
+//---------------------------------
+
+var dashboard_url;
+
+function confirm_dashboard_function(url,msg)
+{
+    if (!window.confirm(msg))
+        return;
+    dashboard_url = url;
+    dashboard_function(url);
+    if (url == '/reboot' ||
+        url == '/server/restart')
+        $('.cover_screen').show();
+}
+function dashboard_function(what)
+{
+    $('#status2').html(what);
+    httpRequest(what,onDashboardFunction,httpError,httpTimeout);
+}
+function onDashboardFunction()
+{
+    var seconds = 0;
+    var text = this.responseText;
+    text = text + "\n>>>" + dashboard_url + "done\n";
+    if (dashboard_url == '/reboot')
+        seconds = 15;
+    if (dashboard_url == '/server/restart')
+        seconds = 5;
+    if (seconds)
+    {
+        text = text + "Reloading in " + seconds + " seconds\n";
+        $('#status2').html("reload in " + seconds);
+        setTimeout(reload_page,seconds * 1000);
+    }
+    $('#dashboard_content').html(text);
+}
+
+
+
+//---------------------------------
+// update
+//---------------------------------
+
+var do_stash = false;
+
+function confirm_function(fxn,msg)
+{
+    if (!window.confirm(msg))
+        return;
+    $('.cover_screen').show();
+    fxn();
+}
+function updateSystem()
+{
+    var command = "/update_system";
+    if (do_stash)
+        command += "_stash";
+    $('#status2').html(command);
+    httpRequest(command,onUpdateResult,httpError,httpTimeout);
+}
+function onUpdateResult()
+{
+    var text = this.responseText;
+    $('#dashboard_content').html(text);
+    if (text.startsWith('GIT_NEEDS_STASH'))
+    {
+        do_stash = 1;
+        $('#system_update_button').html('Update_Stash');
+    }
+    if (text.startsWith('GIT_UPDATE_DONE'))
+    {
+        text = text + "<br>\n>>> Update done - reloading page in 5 seconds <<<<br>";
+        $('#status2').html("reload in 5 seconds");
+        setTimeout(reload_page,5000);
+    }
+    else
+    {
+        $('.cover_screen').hide();
+    }
+
+    myAlert('Update',text);
+    // $('#dashboard_content').html(text);
+}
+
+
+//---------------------------------
+// utilities
+//---------------------------------
+
+function reload_page()
+{
+    $('#status2').html('reloading');
+    location.reload();
+}
+
+function myAlert(title,msg)
+    // denormalized and slightly modified from iotCommon.js
+{
+    $('#alert_title').html(title);
+    $('#alert_msg').html(msg);
+    $('#alert_dlg').modal('show');
+}
 
 function httpRequest(url,success_method, error_method, timeout_method)
 {
@@ -41,129 +187,9 @@ function httpTimeout()
 
 
 
-function onLogReceived()
-{
-    $('#logfile_content').html(this.responseText);
-    setTimeout(function () {
-        window.scroll({
-            top: $('#logfile_div')[0].scrollHeight,
-            left: 0,
-            behavior: 'auto'    // smooth'
-          });
-    },100);
-}
-function logfile(what)
-{
-    $('#status2').html(what);
-    httpRequest(what,onLogReceived,httpError,httpTimeout);
-}
-
-
-
-function onFSLogReceived()
-{
-    $('#fs_logfile_content').html(this.responseText);
-    setTimeout(function () {
-        window.scroll({
-            top: $('#fs_logfile_div')[0].scrollHeight,
-            left: 0,
-            behavior: 'auto'    // smooth'
-          });
-    },100);
-}
-function fs_logfile(what)
-{
-    $('#status2').html(what);
-    httpRequest('file_server' + what,onFSLogReceived,httpError,httpTimeout);
-}
-
-
-var dashboard_url;
-
-function onDashboardFunction()
-{
-    var seconds = 0;
-    var text = this.responseText;
-    text = text + "\n>>>" + dashboard_url + "done\n";
-    if (dashboard_url == '/reboot')
-        seconds = 15;
-    if (dashboard_url == '/server/restart')
-        seconds = 5;
-    if (seconds)
-    {
-        text = text + "Reloading in " + seconds + " seconds\n";
-        $('#status2').html("reload in " + seconds);
-        setTimeout(reload_page,seconds * 1000);
-    }
-    $('#dashboard_content').html(text);
-}
-function dashboard_function(what)
-{
-    $('#status2').html(what);
-    httpRequest(what,onDashboardFunction,httpError,httpTimeout);
-}
-function confirm_dashboard_function(url,msg)
-{
-    if (window.confirm(msg))
-    {
-        dashboard_url = url;
-        dashboard_function(url);
-        if (url == '/reboot' ||
-            url == '/server/restart')
-        {
-            $('.cover_screen').show();
-        }
-    }
-}
-
-
-
-var do_stash = false;
-
-function confirm_function(fxn,msg)
-{
-    if (window.confirm(msg))
-    {
-        $('.cover_screen').show();
-        fxn();
-    }
-}
-function updateSystem()
-{
-    var command = "/update_system";
-    if (do_stash)
-        command += "_stash";
-    $('#status2').html(command);
-    httpRequest(command,onUpdateResult,httpError,httpTimeout);
-}
-function onUpdateResult()
-{
-    var text = this.responseText;
-    $('#dashboard_content').html(text);
-    if (text.startsWith('GIT_NEEDS_STASH'))
-    {
-        do_stash = 1;
-        $('#system_update_button').html('Update_Stash');
-    }
-    if (text.startsWith('GIT_UPDATE_DONE'))
-    {
-        text = text + "\n>>> Update done - reloading page in 5 seconds <<<\n";
-        $('#status2').html("reload in 5 seconds");
-        setTimeout(reload_page,5000);
-    }
-    else
-    {
-        $('.cover_screen').hide();
-    }
-
-    $('#dashboard_content').html(text);
-}
-function reload_page()
-{
-    $('#status2').html('reloading');
-    location.reload();
-}
-
+//------------------------------------------------
+// page initialization
+//------------------------------------------------
 
 function onStartPage()
 {
@@ -172,24 +198,6 @@ function onStartPage()
         $('.linux_only').show();
     if (as_service)
         $('.service_only').show();
-
-
-   // window.addEventListener('scroll', function()
-   // {
-   //   if (window.scrollY > 50)
-   //   {
-   //     document.getElementById('navbar_top').classList.add('fixed-top');
-   //     // add padding top to show content behind navbar
-   //     navbar_height = document.querySelector('.navbar').offsetHeight;
-   //     document.body.style.paddingTop = navbar_height + 'px';
-   //   }
-   //   else
-   //   {
-   //     document.getElementById('navbar_top').classList.remove('fixed-top');
-   //      // remove padding top from body
-   //     document.body.style.paddingTop = '0';
-   //  }
-   // });
 }
 
 
