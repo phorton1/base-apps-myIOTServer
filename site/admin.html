@@ -13,8 +13,29 @@
     <script src="admin.js"></script>
 
 	<style>
-
+		.cover_screen
+		{
+			width:100%;
+			height:100%;
+			left:0;
+			top:0;
+			position:absolute;
+			display:none;
+			z_index:1000;
+			background-color:#000000 !important;
+			opacity:0.5;
+		}
+		.linux_only,
+		.service_only
+		{
+			display:none;
+		}
 	</style>
+
+	<script>
+		var is_win = <&is_win()>;
+		var as_service = <$AS_SERVICE>;
+	</script>
 
 </head>
 <body>
@@ -102,15 +123,19 @@
                 <tr>
 					<td width='140px'>Server</td>
 					<td align='left'>
-						<button class="btn btn-primary"
+						<button class="btn btn-primary service_only"
 							onclick="confirm_dashboard_function('/server/restart','Are you sure you want to restart the Server?')">Restart</button>
 						&nbsp;&nbsp;&nbsp;&nbsp;
 						<button
-							class="btn btn-primary"
+							class="btn btn-primary linux_only"
 							onclick="confirm_dashboard_function('/reboot','Are you sure you want to reboot the Server?')">Reboot</button>
+						<button
+							id='system_update_button'
+							class="btn btn-primary"
+							onclick="confirm_function(updateSystem,'Are you sure you want to Update the source for the Server?')">Update</button>
 					</td>
 				</tr>
-				<tr>
+				<tr class="linux_only">
 					<td width='140px'>File Server</td>
 					<td align='left'>
 						<button class="btn btn-primary"
@@ -245,6 +270,12 @@
     </div>
   </div>
 </div>
+
+
+
+<!-- cover screen -->
+
+<div class = "cover_screen"></div>
 
 
 </body>

@@ -15,6 +15,7 @@ use threads::shared;
 use IO::Socket::INET;
 use Pub::Utils;
 use Pub::Prefs;
+use Pub::ServiceUpdate;
 use Pub::HTTP::Response;
 use Pub::HTTP::ServerBase;
 use base qw(Pub::HTTP::ServerBase);
@@ -87,14 +88,14 @@ sub handle_request
 
 	elsif ($uri eq "/reboot")
 	{
-		LOG(0,"apps::myIOTServer::Handler rebooting the rPi");
+		LOG(0,"myIOTServer rebooting the rPi");
 		system("sudo reboot");
 		$response = http_ok($request,"Rebooting Server");
 	}
 	elsif ($uri eq '/server/restart')
 	{
 		my $what = $1;
-		my $msg = "apps::myIOTServer::Handler restarting the myIOTServer.service in 5 seconds";
+		my $msg = "myIOTServer restarting the myIOTServer.service in 5 seconds";
 		LOG(0,$msg);
 		no warnings 'once';
 		$apps::myIOTServer::myIOTServer::do_restart = time();
@@ -123,7 +124,7 @@ sub handle_request
 		}
 		elsif ($what =~ /^(stop|start|restart)$/)
 		{
-			my $msg = "apps::myIOTServer::Handler $what the fileServer service";
+			my $msg = "myIOTServer $what the fileServer service";
 			LOG(0,$msg);
 			system("sudo systemctl $what fileServer");
 			$response = http_ok($request,$msg);
@@ -152,7 +153,27 @@ sub handle_request
 				200,'text/plain');
 		}
 	}
-
+	elsif ($uri =~ /update_system(_stash)*/)
+	{
+		my $do_stash = $1 ? 1 : 0;
+		LOG(0,"myIOTServer updating system stash($do_stash)");
+		my $text = '';
+		my $rslt = Pub::ServiceUpdate::doSystemUpdate(
+			\$text,
+			$do_stash,
+			['/base/Pub','/base/apps/myIOTServer']);
+		my $line1 = git_result_to_text($rslt);
+		my $sep = "\n";
+		if ($rslt == $GIT_UPDATE_DONE)
+		{
+			$line1 .= "- restarting service in 5 seconds";
+			$sep = "<br>";
+			$text =~ s/\n/<br>/g;
+			LOG(0,"restarting service in 5 seconds");
+			$apps::myIOTServer::myIOTServer::do_restart = time();
+		}
+		$response = html_ok($request,$line1.$sep.$text);
+	}
 
 	#---------------------------------------------------------
 	# Promote the remote request to a WebSocket
