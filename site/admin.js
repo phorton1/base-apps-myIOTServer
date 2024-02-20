@@ -88,6 +88,7 @@ function onDashboardFunction()
     if (seconds)
     {
         text = text + "Reloading in " + seconds + " seconds\n";
+        myAlert(dashboard_url,text);
         reloadIn(seconds);
     }
     $('#dashboard_content').html(text);
