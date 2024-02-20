@@ -82,14 +82,13 @@ function onDashboardFunction()
     var text = this.responseText;
     text = text + "\n>>>" + dashboard_url + "done\n";
     if (dashboard_url == '/reboot')
-        seconds = 30;
+        seconds = 45;
     if (dashboard_url == '/server/restart')
-        seconds = 5;
+        seconds = 10;
     if (seconds)
     {
         text = text + "Reloading in " + seconds + " seconds\n";
-        $('#status2').html("reload in " + seconds);
-        setTimeout(reload_page,seconds * 1000);
+        reloadIn(seconds);
     }
     $('#dashboard_content').html(text);
 }
@@ -128,9 +127,8 @@ function onUpdateResult()
     }
     if (text.startsWith('GIT_UPDATE_DONE'))
     {
-        text = text + "<br>\n>>> Update done - reloading page in 5 seconds <<<<br>";
-        $('#status2').html("reload in 5 seconds");
-        setTimeout(reload_page,5000);
+        text = text + "<br>\n>>> Update done - reloading page in 10 seconds <<<<br>";
+        reloadIn(10);
     }
     else
     {
@@ -146,11 +144,32 @@ function onUpdateResult()
 // utilities
 //---------------------------------
 
-function reload_page()
+var reload_seconds;
+
+function reloadTimer()
 {
-    $('#status2').html('reloading');
-    location.reload();
+    reload_seconds--;
+    if (reload_seconds)
+    {
+        $('#status2').html("reload in " + seconds);
+        setTimeout(reloadTimer,1000);
+    }
+    else
+    {
+        $('#status2').html('reloading');
+        location.reload();
+    }
 }
+
+
+function reloadIn(seconds)
+{
+    reload_seconds = seconds;
+    $('#status2').html("reload in " + seconds);
+    setTimeout(reloadTimer,1000);
+}
+
+
 
 function myAlert(title,msg)
     // denormalized and slightly modified from iotCommon.js
