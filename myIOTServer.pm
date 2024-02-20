@@ -140,6 +140,9 @@ display($dbg_main,0,"$program_name.pm starting");
 display($dbg_main,0,"----------------------------------------------");
 
 $SIG{CHLD} = 'DEFAULT' if !is_win();
+	# needed to run git in ServiceUpdate.pm from backticks
+	# must be called after initServerUtils, which sets it to
+	# IGNORE when spawning the initial unix service
 
 
 Pub::Prefs::initPrefs(
