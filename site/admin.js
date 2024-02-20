@@ -165,9 +165,6 @@ function reload_page()
 }
 
 
-
-
-
 function onStartPage()
 {
     $('button[data-bs-toggle="tab"]').on('shown.bs.tab', onTab);
