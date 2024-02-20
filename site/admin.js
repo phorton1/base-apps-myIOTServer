@@ -151,7 +151,7 @@ function reloadTimer()
     reload_seconds--;
     if (reload_seconds)
     {
-        $('#status2').html("reload in " + seconds);
+        $('#status2').html("reload in " + reload_seconds);
         setTimeout(reloadTimer,1000);
     }
     else
