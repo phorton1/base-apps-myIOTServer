@@ -89,7 +89,7 @@ function onDashboardFunction()
         seconds = 15;
     if (dashboard_url == '/server/restart')
         seconds = 5;
-    if ($seconds)
+    if (seconds)
     {
         text = text + "Reloading in " + seconds + " seconds\n";
         $('#status2').html("reload in " + seconds);
