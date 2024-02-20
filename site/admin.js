@@ -1,7 +1,6 @@
 //--------------------------------------------
 // admin.js
 //--------------------------------------------
-// simple js included in admin.html
 
 var cur_button = 'dashboard_button';
 
