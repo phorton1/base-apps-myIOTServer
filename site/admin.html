@@ -27,7 +27,11 @@
 			display:none;
 			z-index:2000;
 			background-color:#000000 !important;
-			opacity:0.5;
+			opacity:0.3;
+		}
+		.alert_dialog
+		{
+			z-index:3000;
 		}
 		.linux_only,
 		.service_only
@@ -256,7 +260,7 @@
 
 <!-- alert dialog -->
 
-<div id='alert_dlg' class="modal" tabindex="-1" role="dialog">
+<div id='alert_dlg' class="modal alert_dialog" tabindex="-1" role="dialog">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
