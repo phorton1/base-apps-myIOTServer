@@ -55,122 +55,30 @@ function onFSLogReceived()
 }
 
 
-//---------------------------------
-// reboot and restart
-//---------------------------------
 
-var dashboard_url;
+//--------------------------------------------
+// file_server command()
+//--------------------------------------------
 
-function confirm_dashboard_function(url,msg)
+function file_server_command(command)
 {
+    var msg = 'Are you sure you want to ' + command + " the File Server?";
     if (!window.confirm(msg))
         return;
-    dashboard_url = url;
-    dashboard_function(url);
-    if (url == '/reboot' ||
-        url == '/server/restart')
-        $('.cover_screen').show();
+    var url = "/file_server/" + command;
+    $('#status2').html(url);
+    httpRequest(url,on_file_server_command,httpError,httpTimeout);
 }
-function dashboard_function(what)
-{
-    $('#status2').html(what);
-    httpRequest(what,onDashboardFunction,httpError,httpTimeout);
-}
-function onDashboardFunction()
-{
-    var seconds = 0;
-    var text = this.responseText;
-    text = text + "\n>>>" + dashboard_url + "done\n";
-    if (dashboard_url == '/reboot')
-        seconds = 45;
-    if (dashboard_url == '/server/restart')
-        seconds = 15;
-    if (seconds)
-    {
-        text = text + "Reloading in " + seconds + " seconds\n";
-        myAlert(dashboard_url,text);
-        reloadIn(seconds);
-    }
-    $('#dashboard_content').html(text);
-}
-
-
-
-//---------------------------------
-// update
-//---------------------------------
-
-var do_stash = false;
-
-function confirm_function(fxn,msg)
-{
-    if (!window.confirm(msg))
-        return;
-    $('.cover_screen').show();
-    fxn();
-}
-function updateSystem()
-{
-    var command = "/update_system";
-    if (do_stash)
-        command += "_stash";
-    $('#status2').html(command);
-    httpRequest(command,onUpdateResult,httpError,httpTimeout);
-}
-function onUpdateResult()
+function on_file_server_command()
 {
     var text = this.responseText;
-    $('#dashboard_content').html(text);
-    if (text.startsWith('GIT_NEEDS_STASH'))
-    {
-        do_stash = 1;
-        $('#system_update_button').html('Update_Stash');
-    }
-    if (text.startsWith('GIT_UPDATE_DONE'))
-    {
-        text = text + "<br>\n>>> Update done - reloading page in 20 seconds <<<<br>";
-        reloadIn(15);
-    }
-    else
-    {
-        $('.cover_screen').hide();
-    }
-
-    myAlert('Update',text);
-    // $('#dashboard_content').html(text);
+    myAlert('fileServer',$text);
 }
 
 
 //---------------------------------
 // utilities
 //---------------------------------
-
-var reload_seconds;
-
-function reloadTimer()
-{
-    reload_seconds--;
-    if (reload_seconds)
-    {
-        $('#status2').html("reload in " + reload_seconds);
-        setTimeout(reloadTimer,1000);
-    }
-    else
-    {
-        $('#status2').html('reloading');
-        location.reload();
-    }
-}
-
-
-function reloadIn(seconds)
-{
-    reload_seconds = seconds;
-    $('#status2').html("reload in " + seconds);
-    setTimeout(reloadTimer,1000);
-}
-
-
 
 function myAlert(title,msg)
     // denormalized and slightly modified from iotCommon.js
@@ -217,6 +125,13 @@ function onStartPage()
         $('.linux_only').show();
     if (as_service)
         $('.service_only').show();
+
+    init_standard_system_commands({
+        show_command : '#status2',
+        countdown_timer : '#status2',
+        restart_time : 15,
+        reboot_time : 45 });
+
 }
 
 
