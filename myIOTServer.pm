@@ -35,7 +35,6 @@ my $dbg_main = 0;
 my $IOT_SERVER_PORT = 6902;
 
 
-our $do_restart:shared = 0;
 our $last_connected = 0;
 
 
@@ -49,13 +48,15 @@ sub startHTTPS
 {
 	# because there is a preference file, we do NOT
 	# pass in many parameters.  They can explicity
-	# be added to $params herer to override anything from
+	# be added to $params here to override anything from
 	# the prefs file.
 
 	# Otherwise, we set some defaults here, which can
 	# be overriden in the prefs file.
 
 	my $params = {};
+
+	getObjectPref($params,'HTTP_SERVER_NAME',	'myIOTServer('.getMachineId().')');
 
 	getObjectPref($params,'HTTP_PORT',			$IOT_SERVER_PORT);
 	getObjectPref($params,'HTTP_SSL',			1);
@@ -64,6 +65,10 @@ sub startHTTPS
 	getObjectPref($params,'HTTP_AUTH_FILE',		"$data_dir/users.txt");
 	getObjectPref($params,'HTTP_AUTH_REALM',	"myIOTServer");
 	getObjectPref($params,'HTTP_DOCUMENT_ROOT',	"/base/apps/myIOTServer/site");
+
+	getObjectPref($params,'HTTP_ALLOW_REBOOT',   1);			# linux only
+	getObjectPref($params,'HTTP_RESTART_SERVICE','myIOTServer');
+	getObjectPref($params,'HTTP_GIT_UPDATE',     '/base/Pub,/base/apps/myIOTServer');
 
 	$https_server = apps::myIOTServer::myIOTServer->new($params);
 	$https_server->start();
@@ -167,12 +172,6 @@ while (!apps::myIOTServer::Wifi::connected())
 #--------------------------------------
 # Main
 #--------------------------------------
-# For good measure there could be PREFERENCES to
-# restart and/or reboot the server on a schedule of
-# some sort.  Having just put in the PING stuff, I
-# am going to see if it now finally stays alive
-# for a while.
-
 
 my $MEMORY_REFRESH = 7200;		# every 2 hours
 my $memory_time = 0;
@@ -181,6 +180,7 @@ my $memory_time = 0;
 sub on_loop
 {
 	my $connected = apps::myIOTServer::Wifi::connected();
+		# set by separate thread that runs every 2 seconds
 
 	if ($last_connected != $connected)
 	{
@@ -201,7 +201,7 @@ sub on_loop
 	# we check once a second for devices that
 	# to need to be reconnected (WS_LOCAL)
 
-	elsif ($last_connected)	# greedy
+	elsif ($last_connected)
 	{
 		apps::myIOTServer::Device::loop();
 	}
@@ -213,16 +213,6 @@ sub on_loop
 	{
 		$memory_time = $now;
 		debug_memory("in loop");
-	}
-
-	# wait a second after $do_restart is set,
-	# to restart the linux service
-
-	if ($do_restart && time() > $do_restart + 1)
-	{
-		$do_restart = 0;
-		LOG(0,"RESTARTING SERVICE");
-		system("sudo systemctl restart myIOTServer.service");
 	}
 }
 
@@ -236,11 +226,11 @@ sub on_terminate()
 }
 
 
-# Uses 10% of Windows machine, probably 30% of rPi
+# The main loop and program uses very little CPU on either machine
 
 Pub::ServiceMain::main_loop({
 	MAIN_LOOP_CONSOLE => 1,
-	MAIN_LOOP_SLEEP => 0.2,		# most programs use 0.2,
+	MAIN_LOOP_SLEEP => 0.2,		# most programs use 0.2
 	MAIN_LOOP_CB_TIME => 1,		# most programs use 1 minimum
 	MAIN_LOOP_CB => \&on_loop,
 	# MAIN_LOOP_KEY_CB => \&on_console_key,

@@ -83,24 +83,9 @@ sub handle_request
 	}
 
 	#---------------------------------------------
-	# HTTP access to basic server functionality
+	# file_server functions
 	#---------------------------------------------
 
-	elsif ($uri eq "/reboot")
-	{
-		LOG(0,"myIOTServer rebooting the rPi");
-		system("sudo reboot");
-		$response = http_ok($request,"Rebooting Server");
-	}
-	elsif ($uri eq '/server/restart')
-	{
-		my $what = $1;
-		my $msg = "Restarting the service";
-		LOG(0,$msg);
-		no warnings 'once';
-		$apps::myIOTServer::myIOTServer::do_restart = time();
-		$response = http_ok($request,$msg);
-	}
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
 	{
 		my $what = $1;
@@ -130,48 +115,7 @@ sub handle_request
 			$response = http_ok($request,$msg);
 		}
 	}
-	elsif ($uri eq "/log")
-	{
-		$response = Pub::HTTP::Response->new($request,
-            shared_clone({filename=>$logfile}),
-			200,'text/plain');
-	}
-	elsif ($uri eq "/log/clear")
-	{
-		if (!(-f $logfile))
-		{
-			$response = http_ok($request,"LOGFILE $logfile does not exist");
-		}
-		else
-		{
-			unlink $logfile;
-			sleep(1);
-			LOG(0,"logfile $logfile cleared");
-			sleep(1);
-			$response = Pub::HTTP::Response->new($request,
-				shared_clone({filename=>$logfile}),
-				200,'text/plain');
-		}
-	}
-	elsif ($uri =~ /update_system(_stash)*/)
-	{
-		my $do_stash = $1 ? 1 : 0;
-		LOG(0,"myIOTServer updating system stash($do_stash)");
-		my $text = '';
-		my $rslt = Pub::ServiceUpdate::doSystemUpdate(
-			\$text,
-			$do_stash,
-			['/base/Pub','/base/apps/myIOTServer']);
-		my $line1 = git_result_to_text($rslt);
-		$text =~ s/\n/<br>/g;
-		if ($rslt == $GIT_UPDATE_DONE)
-		{
-			$line1 .= "- restarting service";
-			LOG(0,"restarting service");
-			$apps::myIOTServer::myIOTServer::do_restart = time();
-		}
-		$response = html_ok($request,$line1."<br>".$text);
-	}
+
 
 	#---------------------------------------------------------
 	# Promote the remote request to a WebSocket
@@ -186,7 +130,8 @@ sub handle_request
 	#------------------------------------
 	# Base Class Stuff
 	#------------------------------------
-	# Let the base class handle regular serving from apps::myIOTServer::site directory
+	# base class handles /reboot, /restart_service, /update_system(_stash)
+	# and static files
 
 	else
 	{
