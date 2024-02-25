@@ -22,17 +22,16 @@
 // All implementations require
 //
 //      <div class='.cover_screen'></div>
-//          that is appropriately styled and a function
-//          myAlert(title,msg) that accepts html in the message.
+//          that is appropriately styled
 //      myAlert(title,msg) function
 //          dialog box to show the results of a call
 //          or an error
 //
-// init_standard_system_commands() optionally takes a hash
+// init_standard_system_command() optionally takes a hash
 // containing the following values
 //
-//  show_command = selector for an html containing the command
-//
+//  show_command = selector for which will get the
+//      text of the command if confirmed
 //  update_button = selector for button to change from 'update' to
 //      'update_stash' and back if need for stash is detected
 //  countdown_timer = selector for html() of countdown timer
@@ -41,7 +40,6 @@
 //      before calling location.reload() on restart or
 //      successfull update_system(_stash) returning
 //      GIT_UPDATE_DONE. Default=10
-//
 //  reboot_time = number of seconds to allow for a reboot
 //      before calling location.reload(). Default == 30
 
