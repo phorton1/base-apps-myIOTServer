@@ -1,6 +1,10 @@
 //--------------------------------------------
 // standard_system.js
 //--------------------------------------------
+// This file is denormalized across Artisan, myIOTServer,
+// the inventory system, and possibly myEbayService.
+// IT MUST BE MANUALLY NORMALIZED IF CHANGED.
+//
 // Standardized handling of HTTP::ServerBase 'system'
 // commands:  reboot, restart_service, update_system(_stash).
 // The responses for reboot and restart are single lines
@@ -10,7 +14,7 @@
 //
 // The function call is
 //
-//      onclick="javascript:standard_system_command('reboot')"
+//      onclick="standard_system_command('reboot')"
 //
 // in the calling html, which should be protected with styling
 // (i.e. .linux_only) as appropriate
@@ -124,13 +128,13 @@ function do_system_command()
 
 function startReloadTimer()
 {
-    reload_seconds = params.restart_time ?
-        params.restart_time : 10;
+    reload_seconds = system_params.restart_time ?
+        system_params.restart_time : 10;
     if (system_command == 'reboot')
-        reload_seconds = params.reboot_time ?
-            params.reboot_time : 30;
-    if (params.countdown_timer)
-        $(parms.countdown_timer).html("reload in " + reload_seconds);
+        reload_seconds = system_params.reboot_time ?
+            system_params.reboot_time : 30;
+    if (system_params.countdown_timer)
+        $(system_params.countdown_timer).html("reload in " + reload_seconds);
     setTimeout(reloadTimer,1000);
 }
 
@@ -140,14 +144,14 @@ function reloadTimer()
     reload_seconds--;
     if (reload_seconds)
     {
-        if (params.countdown_timer)
-            $(parms.countdown_timer).html("reload in " + reload_seconds);
+        if (system_params.countdown_timer)
+            $(system_params.countdown_timer).html("reload in " + reload_seconds);
         setTimeout(reloadTimer,1000);
     }
     else
     {
-        if (params.countdown_timer)
-            $(parms.countdown_timer).html("reloading");
+        if (system_params.countdown_timer)
+            $(system_params.countdown_timer).html("reloading");
         location.reload();
     }
 }
