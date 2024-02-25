@@ -83,16 +83,18 @@ function do_system_command()
 
         success: function (result)
         {
-            myAlert(system_command,result);
             if (system_command == 'reboot' ||
-                system_command == 'restart_system' || (
+                system_command == 'restart_service' || (
                 system_command.startsWith('update_system') &&
                 result.startsWith('GIT_UPDATE_DONE')))
             {
                 startReloadTimer();
+                result += "<br>Restarting service in " + reload_seconds;
+                myAlert(system_command,result);
             }
             else
             {
+                myAlert(system_command,result);
                 $('.cover_screen').hide();
                 if (result.startsWith('GIT_NEEDS_STASH'))
                 {
