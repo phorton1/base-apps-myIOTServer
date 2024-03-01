@@ -65,6 +65,7 @@ sub startHTTPS
 	getObjectPref($params,'HTTP_AUTH_FILE',		"$data_dir/users.txt");
 	getObjectPref($params,'HTTP_AUTH_REALM',	"myIOTServer");
 	getObjectPref($params,'HTTP_DOCUMENT_ROOT',	"/base/apps/myIOTServer/site");
+	getObjectPref($params,'HTTP_DEFAULT_LOCATION',"/myIOT/index.html");
 
 	getObjectPref($params,'HTTP_ALLOW_REBOOT',   1);			# linux only
 	getObjectPref($params,'HTTP_RESTART_SERVICE','myIOTServer');

@@ -1,0 +1,3 @@
+[submodule "site/myIOT"]
+	path = site/myIOT
+	url = https://github.com/phorton1/Arduino-libraries-myIOT-data_master
