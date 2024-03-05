@@ -69,7 +69,8 @@ sub startHTTPS
 
 	getObjectPref($params,'HTTP_ALLOW_REBOOT',   1);			# linux only
 	getObjectPref($params,'HTTP_RESTART_SERVICE','myIOTServer');
-	getObjectPref($params,'HTTP_GIT_UPDATE',     '/base/Pub,/base/apps/myIOTServer');
+	getObjectPref($params,'HTTP_GIT_UPDATE',     '/base/Pub,/base/apps/myIOTServer,/base/apps/myIOTServer/site/myIOT');
+		# added simplistic attempt to update submodules
 
 	$https_server = apps::myIOTServer::myIOTServer->new($params);
 	$https_server->start();
