@@ -50,6 +50,7 @@ var reload_seconds;
 var system_params = {};
 var system_msgs = {
     'restart_service' : 'restart the service',
+    'shutdown_system' : 'shutdown the system',
     'reboot' : 'reboot the computer',
     'update_system' : 'update the system source code',
     'update_system_stash' : 'stash changes and update the system source code', };
@@ -97,7 +98,7 @@ function do_system_command()
             else
             {
                 myAlert(system_command,result);
-                if (system_command != 'shutdown')
+                if (system_command != 'shutdown_system')
                     $('.cover_screen').hide();
                 if (result.startsWith('GIT_NEEDS_STASH'))
                 {
