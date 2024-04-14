@@ -6,11 +6,11 @@
 // IT MUST BE MANUALLY NORMALIZED IF CHANGED.
 //
 // Standardized handling of HTTP::ServerBase 'system'
-// commands:  reboot, restart_service, update_system(_stash).
-// The responses for reboot and restart are single lines
-// of text.  The responses for update_system are
-// multi-lined html with page breaks that startWith()
-// a Pub::ServiceUpdate GIT_XXX constant in text form.
+// commands:  shutdown, reboot, restart_service, update_system(_stash).
+// The responses for shutdown, reboot and restart are single lines
+// of text.  The responses for update_system are multi-lined html with
+// page breaks that startWith() a Pub::ServiceUpdate GIT_XXX constant
+// in text form.
 //
 // The function call is
 //
@@ -97,7 +97,8 @@ function do_system_command()
             else
             {
                 myAlert(system_command,result);
-                $('.cover_screen').hide();
+                if (system_command != 'shutdown')
+                    $('.cover_screen').hide();
                 if (result.startsWith('GIT_NEEDS_STASH'))
                 {
                     needs_stash = true;
