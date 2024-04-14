@@ -67,9 +67,9 @@ function file_server_command(command)
         return;
 
     if (command == 'forward_start')
-        fs_forwaded = True;
+        fs_forwaded = true;
     if (command == 'forward_stop')
-        fs_forwaded = False;
+        fs_forwaded = false;
     showFSForwarded();
 
     var url = "/file_server/" + command;
