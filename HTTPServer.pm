@@ -116,8 +116,9 @@ sub handle_request
 		}
 		elsif ($what =~ /^forward_(start|stop)$/)
 		{
-			LOG(0,"file_server $what");
-			set_FS_DO_FORWARD($what eq 'forward_start' ? 1 : 0);
+			my $cmd = $1;
+			LOG(0,"file_server forward '$cmd'");
+			set_FS_DO_FORWARD(($cmd eq 'start') ? 1 : 0);
 			system("sudo systemctl restart fileServer");
 			$response = http_ok($request,"myIOTServer performed fileServer $what");
 		}
