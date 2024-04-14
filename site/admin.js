@@ -125,13 +125,13 @@ function httpTimeout()
 // page initialization
 //------------------------------------------------
 
-function showFSForwarded
+function showFSForwarded()
 {
     if (fs_forwarded)
     {
         $('.fs_forwarded').show();
         $('.fs_not_forwarded').hide();
-    {
+    }
     else
     {
         $('.fs_not_forwarded').show();
