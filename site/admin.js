@@ -79,7 +79,7 @@ function file_server_command(command)
 function on_file_server_command()
 {
     var text = this.responseText;
-    myAlert('fileServer',$text);
+    myAlert('fileServer',text);
 }
 
 
