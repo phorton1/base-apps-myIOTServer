@@ -65,6 +65,13 @@ function file_server_command(command)
     var msg = 'Are you sure you want to ' + command + " the File Server?";
     if (!window.confirm(msg))
         return;
+
+    if (command == 'forward_start')
+        fs_forwaded = True;
+    if (command == 'forward_stop')
+        fs_forwaded = False;
+    showFSForwarded();
+
     var url = "/file_server/" + command;
     $('#status2').html(url);
     httpRequest(url,on_file_server_command,httpError,httpTimeout);
@@ -118,6 +125,22 @@ function httpTimeout()
 // page initialization
 //------------------------------------------------
 
+function showFSForwarded
+{
+    if (fs_forwarded)
+    {
+        $('.fs_forwarded').show();
+        $('.fs_not_forwarded').hide();
+    {
+    else
+    {
+        $('.fs_not_forwarded').show();
+        $('.fs_forwarded').hide();
+    }
+
+}
+
+
 function onStartPage()
 {
     $('button[data-bs-toggle="tab"]').on('shown.bs.tab', onTab);
@@ -129,6 +152,8 @@ function onStartPage()
         $('.is_not_forwarded').hide();
     else
         $('.is_forwarded').hide();
+
+    showFSForwarded();
 
     init_standard_system_commands({
         show_command : '#status2',

@@ -44,6 +44,7 @@
 		var is_win = <&is_win()>;
 		var as_service = <$AS_SERVICE>;
 		var is_forwarded = <&Pub::PortForwarder::isThreadRunning()>;
+		var fs_forwaded = <&apps::myIOTServer::myIOTServer::getFS_DO_FORWARD()>;
 	</script>
 
 </head>
@@ -147,11 +148,9 @@
 							onclick="standard_system_command('update_system')">Update</button>
 						&nbsp;&nbsp;&nbsp;&nbsp;
 						<button
-							id='system_update_button'
 							class="btn btn-primary is_not_forwarded"
 							onclick="standard_system_command('forward_start')">StartForward</button>
 						<button
-							id='system_update_button'
 							class="btn btn-primary is_forwarded"
 							onclick="standard_system_command('forward_stop')">StopForward</button>
 					</td>
@@ -161,12 +160,17 @@
 					<td align='left'>
 						<button class="btn btn-primary"
 							onclick="file_server_command('restart')">Restart</button>
-						&nbsp;&nbsp;&nbsp;&nbsp;
 						<button class="btn btn-primary"
 							onclick="file_server_command('stop')">Stop</button>
-						&nbsp;&nbsp;&nbsp;&nbsp;
 						<button class="btn btn-primary"
 							onclick="file_server_command('start')">Start</button>
+						&nbsp;&nbsp;&nbsp;&nbsp;
+						<button
+							class="btn btn-primary fs_not_forwarded"
+							onclick="file_server_command('forward_start')">StartForward</button>
+						<button
+							class="btn btn-primary fs_forwarded"
+							onclick="file_server_command('forward_stop')">StopForward</button>
 					</td>
 				</tr>
             </tbody>

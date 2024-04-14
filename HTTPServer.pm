@@ -110,9 +110,17 @@ sub handle_request
 		elsif ($what =~ /^(stop|start|restart)$/)
 		{
 			my $msg = "myIOTServer $what the fileServer service";
-			LOG(0,$msg);
+			LOG(0,'file_server '.$msg);
 			system("sudo systemctl $what fileServer");
 			$response = http_ok($request,$msg);
+		}
+		elsif ($what =~ /^forward_(start|stop)$/)
+		{
+			my $cmd = $1;
+			LOG(0,"file_server $what");
+			set_FS_DO_FORWARD($cmd eq 'start' ? 1 : 0);
+			system("sudo systemctl restart fileServer");
+			$response = http_ok($request,"myIOTServer performed fileServer $what");
 		}
 	}
 
@@ -280,6 +288,54 @@ sub forwardRequest
 	display($dbg_fwd,0,"forwardRequest() returning");
 	return $RESPONSE_HANDLED;;
 }
+
+
+
+#-----------------------------------------------------------
+# pseudo prefs routines for fileServer from myIOTServer
+#-----------------------------------------------------------
+
+my $fs_prefs_filename = '/base_data/data/fileServer/fileServer.prefs';
+	# hardwired
+
+sub getFS_DO_FORWARD
+{
+	my $retval = 0;
+	my @lines = getTextLines($fs_prefs_filename);
+	for my $line (@lines)
+	{
+		if ($line =~ /^\s*FS_DO_FORWARD\s*=\s*(\d)/)
+		{
+			$retval = $1;
+			last;
+		}
+	}
+	LOG(0,"get_FS_DO_FORWARD()=$retval");
+	return $retval;
+}
+
+
+sub set_FS_DO_FORWARD
+{
+	my ($fwd) = 0;
+	LOG(0,"set_FS_DO_FORWARD($fwd)");
+	my $text = '';
+	my @lines = getTextLines($fs_prefs_filename);
+	my $gotit = 0;
+	for my $line (@lines)
+	{
+		if ($line =~ /^\s*FS_DO_FORWARD\s*=\s*(\d)/)
+		{
+			$line = "FS_DO_FORWARD = $fwd";
+			$gotit = 1;
+		}
+		$text .= $line."\n";
+	}
+	$text .= "\nFS_DO_FORWARD = $fwd\n"
+		if !$gotit;
+	printVarToFile(1,$fs_prefs_filename,$text);
+}
+
 
 
 1;
