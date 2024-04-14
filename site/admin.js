@@ -125,6 +125,10 @@ function onStartPage()
         $('.linux_only').show();
     if (as_service)
         $('.service_only').show();
+    if (is_forwarded)
+        $('.is_not_forwarded').hide();
+    else
+        $('.is_forwarded').hide();
 
     init_standard_system_commands({
         show_command : '#status2',

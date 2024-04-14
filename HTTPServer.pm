@@ -130,8 +130,8 @@ sub handle_request
 	#------------------------------------
 	# Base Class Stuff
 	#------------------------------------
-	# base class handles /reboot, /restart_service, /update_system(_stash)
-	# and static files
+	# base class handles /reboot, /shutdown_system, /restart_service,
+	# /update_system(_stash) # and static files
 
 	else
 	{

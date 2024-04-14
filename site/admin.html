@@ -43,6 +43,7 @@
 	<script>
 		var is_win = <&is_win()>;
 		var as_service = <$AS_SERVICE>;
+		var is_forwarded = <&Pub::PortForwarder::isThreadRunning()>;
 	</script>
 
 </head>
@@ -144,6 +145,15 @@
 							id='system_update_button'
 							class="btn btn-primary"
 							onclick="standard_system_command('update_system')">Update</button>
+						&nbsp;&nbsp;&nbsp;&nbsp;
+						<button
+							id='system_update_button'
+							class="btn btn-primary is_not_forwarded"
+							onclick="standard_system_command('forward_start')">StartForward</button>
+						<button
+							id='system_update_button'
+							class="btn btn-primary is_forwarded"
+							onclick="standard_system_command('forward_stop')">StopForward</button>
 					</td>
 				</tr>
 				<tr class="linux_only">

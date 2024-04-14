@@ -49,11 +49,13 @@ var system_command = '';
 var reload_seconds;
 var system_params = {};
 var system_msgs = {
-    'restart_service' : 'restart the service',
-    'shutdown_system' : 'shutdown the system',
-    'reboot' : 'reboot the computer',
-    'update_system' : 'update the system source code',
-    'update_system_stash' : 'stash changes and update the system source code', };
+    'restart_service'       : 'Restart the service',
+    'shutdown_system'       : 'Shutdown the system',
+    'reboot'                : 'Reboot the computer',
+    'update_system'         : 'Update the system source code',
+    'forward_start'         : 'Start port forwarding',
+    'forward_stop'          : 'Stop port forwarding',
+    'update_system_stash'   : 'Stash changes and update the system source code', };
 
 
 function init_standard_system_commands(in_params)
@@ -87,12 +89,14 @@ function do_system_command()
         success: function (result)
         {
             if (system_command == 'reboot' ||
+                system_command == 'forward_stop' ||
+                system_command == 'forward_start' ||
                 system_command == 'restart_service' || (
                 system_command.startsWith('update_system') &&
                 result.startsWith('GIT_UPDATE_DONE')))
             {
                 startReloadTimer();
-                result += "<br>Restarting service in " + reload_seconds;
+                result += "<br>Restarting service and Reloading in " + reload_seconds;
                 myAlert(system_command,result);
             }
             else
