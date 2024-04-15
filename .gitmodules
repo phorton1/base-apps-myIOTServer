@@ -1,3 +1,6 @@
 [submodule "site/myIOT"]
 	path = site/myIOT
 	url = https://github.com/phorton1/Arduino-libraries-myIOT-data_master
+[submodule "site/standard"]
+	path = site/standard
+	url = https://github.com/phorton1/base-apps-artisan-webUI-standard
