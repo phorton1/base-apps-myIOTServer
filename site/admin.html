@@ -43,7 +43,7 @@
 	<script>
 		var is_win = <&is_win()>;
 		var as_service = <$AS_SERVICE>;
-		var is_forwarded = <&Pub::PortForwarder::isThreadRunning()>;
+		var is_forwarded = <$this->{HTTP_DO_FORWARD}>;
 		var fs_forwarded = <&apps::myIOTServer::myIOTServer::getFS_DO_FORWARD()>;
 	</script>
 
