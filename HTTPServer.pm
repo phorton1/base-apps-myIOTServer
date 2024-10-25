@@ -150,6 +150,31 @@ sub handle_request
 }
 
 
+
+#-----------------------------------------------
+# forwardRequest
+#-----------------------------------------------
+# Forward certain GET and POST requests to specific device (by uuid).
+# We HAVE to rebuild the GET query parameters onto the URI as
+#	they were stripped off by the base HTTPServer. Although I
+#   am not aware of any use of query params on POST requests,
+#   we might also need to rebuild them onto POST requests.
+# We then send the a subset of the original request headers to the
+#   device. The use of a subset decreases the traffic and/or *may*
+#	be required perhaps to get them in a specific order. But it
+#	also might be easier to just send them all.
+#
+# We then receive bytes from the device and send them to the client.
+# The current working code assumes the headers will come in a single recv() call.
+#
+# We then loop, forwarding 10K buffers of content from the device
+# 	to the client.
+# For well formed responses (with a content-length) we can send
+# exactly the whole response back to the client, but for certain
+# (chunked) responses, like the one for chart_data of unknown length,
+# we have depend on sysread() returning 0 when the content is finished.
+
+
 sub forwardRequest
 	# this might be something that is limited by auth_privs
 {
@@ -180,8 +205,25 @@ sub forwardRequest
 	binmode $sock;
 	$sock->autoflush(1);
 
-	# send the headers
-	# We send out mimimal headers, however, here's what we received (not in order)
+	# rebuild GET query parameters
+
+	my $param_str = '';
+	if ($request->{method} eq 'GET')
+	{
+		my $params = $request->{params};
+		for my $key (sort keys(%$params))
+		{
+			my $val = $params->{$key};
+			$param_str .= $param_str?"&":"?";
+			$param_str .= "$key=$val";
+		}
+	}
+
+	my $uri = $request->{uri};
+	my $headers = $request->{headers};
+	my $text = "$request->{method} $uri$param_str HTTP/1.1\r\n";
+
+	# send certain headers
 	#
 	# accept = '*/*'
 	# accept-encoding = 'gzip, deflate, br'
@@ -200,9 +242,6 @@ sub forwardRequest
 	# user-agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0'
 	# x-myiot-deviceuuid = '38323636-4558-4dda-9188-7c9ebd667ddc'
 
-	my $uri = $request->{uri};
-	my $headers = $request->{headers};
-	my $text = "$request->{method} $uri HTTP/1.1\r\n";
 	$text .= "Host: $headers->{host}\r\n";
 	$text .= "Content-Type: $headers->{'content-type'}\r\n"
 		if $headers->{'content-type'};
@@ -215,34 +254,62 @@ sub forwardRequest
 	display($dbg_fwd+1,0,"Sending HEADERS\n$text");
 	$sock->write($text);
 
-	# send the content
+	# send the content (for POST requests)
 
 	my $content = $request->{content};
 	display($dbg_fwd+1,0,"Sending ".length($content)." bytes of CONTENT");
 	$sock->write($content);
 
-	# get reply headers nad forward them to the client
+	#--------------------------------
+	# read and forward the response
+	#--------------------------------
+	# There is some kind of issue simply using the <$sock> form of reading
+	# lines of text.   When I do sysreads of custom chart_header I get the
+	# content type, but when I do <$sock> I don't !!
 
+	my $content_length = -1;
 	display($dbg_fwd+1,0,"waiting for result");
-	my $content_length = 0;
-	while (my $line = <$sock>)
+
+	if (1)	# working code, do a single recv() call to get all headers
 	{
-		$client->write($line);
-		$line =~ s/\s$//g;
-		display($dbg_fwd+1,1,"forwarded header_line: $line");
-		$content_length = $1 if $line =~ /Content-Length: (\d+)$/;
-		last if !$line;
-		$line = <$sock>;
+		my $buf;
+		my $rslt = $sock->recv($buf,10000);
+		if (length($buf))
+		{
+			display_bytes($dbg_fwd+1,0,"got headers",$buf);
+			$client->write($buf);
+			$content_length = $1 if $buf =~ /Content-Length: (\d+)/;
+		}
 	}
 
+	else	# OLD CODE: use <$sock> form to read headers
+	{
+		# wasn't working on chart_header for some reason ?!?
+		# never got/forwarded the application/json header
+		while (my $line = <$sock>)
+		{
+			$client->write($line);
+			$line =~ s/\s$//g;
+			display($dbg_fwd+1,1,"forwarded header_line: $line");
+			$content_length = $1 if $line =~ /Content-Length: (\d+)$/;
+			last if !$line;
+			$line = <$sock>;
+		}
+	}
+
+
 	# forward the content, if any, to the client
+	# content length of -1 indicates chunked response (no known length)
 
 	if ($content_length)
 	{
-		display($dbg_fwd,0,"forwarding $content_length bytes of content");
+
+		display($dbg_fwd,0,$content_length > 0?
+			"forwarding $content_length bytes of content" :
+			"forwarding unknown number of bytes of (chunked) content");
 
 		my $TIMEOUT = 60;
-
+		
 		my $buf;
 		my $remain = $content_length;
 		my $timeout = time();
@@ -253,22 +320,24 @@ sub forwardRequest
 				error("read timed out");
 				last;
 			}
-			my $to_read = $remain;
+			my $to_read = $remain > 0 ? $remain : 10000;
 			$to_read = 10000 if $to_read > 10000;
 			my $got = sysread $sock,$buf,$to_read;
 			if ($got != $to_read)
 			{
 				# we often receive less than we asked for while it still works.
-				# warning(0,0,"forwarding read expected $to_read got $got");
+				# 	warning(0,0,"forwarding read expected $to_read got $got");
+				# however, if we receive nothing, it means that a chunked response is done.
+
 				if (!$got)
 				{
-					error("sysread returned zero");
+					warning($dbg_fwd,0,"forward sysread returned zero");
 					last;
 				}
 				$to_read = $got;
 			}
 
-			# write a buffer to the client
+			# write the buffer to the client
 
 			if ($to_read)
 			{
@@ -279,7 +348,7 @@ sub forwardRequest
 					error("forwarding write expected $to_read got $got");
 					last;
 				}
-				$remain -= $to_read;
+				$remain -= $to_read if $remain > 0;
 			}
 		}
 	}
