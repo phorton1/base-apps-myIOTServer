@@ -106,37 +106,11 @@ use JSON;
 
 
 my $dbg_device = 0;			# usual debugging where 0 == show, 1 == dont, -1,-2 more detail,
-my $dbg_set_values = 1;		# if !$dbg_device, 0 == show set values, 1 == don't show
+my $dbg_set_values = 0;		# if !$dbg_device, 0 == show set values, 1 == don't show
 
 my $REOPEN_DEVICE_INTERVAL = 4;
 	# seconds after we detect a closed socket
 	# before we attempt to re-open it
-
-# selected constants from C++ myIOT::myIOTTypes.h
-
-my $VALUE_STYLE_NONE        = 0x0000;      # no special styling
-my $VALUE_STYLE_READONLY    = 0x0001;      # Value may not be modified except by PROG
-my $VALUE_STYLE_REQUIRED    = 0x0002;      # String item may not be blank
-my $VALUE_STYLE_PASSWORD    = 0x0004;      # displayed as '********', protected in debugging, etc. Gets "retype" dialog in UI
-my $VALUE_STYLE_TIME_SINCE  = 0x0008;      # ui shows '23 minutes ago' in addition to the time string
-    # by convention, for hiding during debugging, password elements should be named with "_PASS" in them,
-    # and the global define DEBUG_PASSWORDS implemented to ensure they are not, or are
-    # displayed in LOGN calls.
-my $VALUE_STYLE_VERIFY      = 0x0010;      # UI buttons will display a confirm dialog
-my $VALUE_STYLE_LONG        = 0x0020;      # UI will show a long (rather than default 15ish) String Input Control
-my $VALUE_STYLE_OFF_ZERO    = 0x0040;      # Allows 0 below min and displays it as "OFF"
-my $VALUE_STYLE_RETAIN      = 0x0100;      # MQTT if published, will be "retained"
-    # CAREFUL with the use of MQTT retained messages!!
-    # They can only be cleared on the rpi with:
-    #      sudo service mosquitto stop
-    #      sudo rm /var/lib/mosquitto/mosquitto.db
-    #      sudo service mosquitto start
-    # or individually with
-    #      mosquitto_pub -u myIOTClient -P 1234 -h localhost -t bilgeAlarm/ONBOARD_LED -n -r -d
-
-my $VALUE_STYLE_HIST_TIME   = ($VALUE_STYLE_READONLY | $VALUE_STYLE_TIME_SINCE);
-
-
 
 
 my $devices:shared = shared_clone({});

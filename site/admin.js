@@ -2,17 +2,17 @@
 // admin.js
 //--------------------------------------------
 
-var cur_button = 'dashboard_button';
+var cur_button = 'system_tab_button';
 
 function onTab(event)
     // triggered when the user changes tabs in the UI
 {
     cur_button = event.target.id;
     $('#status1').html(cur_button);
-    if (cur_button == 'logfile_button')
-        logfile('/log');
-    if (cur_button == 'fs_logfile_button')
-        fs_logfile('/log');
+    if (cur_button == 'servicelog_tab_button')
+        doServiceLog('/log');
+    if (cur_button == 'filelog_tab_button')
+        doFileLog('/log');
 }
 
 
@@ -20,34 +20,34 @@ function onTab(event)
 // log files
 //---------------------------------
 
-function logfile(what)
+function doServiceLog(what)
 {
     $('#status2').html(what);
-    httpRequest(what,onLogReceived,httpError,httpTimeout);
+    httpRequest(what,onServiceLogReceived,httpError,httpTimeout);
 }
-function onLogReceived()
+function onServiceLogReceived()
 {
-    $('#logfile_content').html(this.responseText);
+    $('#servicelog_content').html(this.responseText);
     setTimeout(function () {
         window.scroll({
-            top: $('#logfile_div')[0].scrollHeight,
+            top: $('#servicelog_div')[0].scrollHeight,
             left: 0,
             behavior: 'auto'    // smooth'
           });
     },100);
 }
 
-function fs_logfile(what)
+function doFileLog(what)
 {
     $('#status2').html(what);
-    httpRequest('file_server' + what,onFSLogReceived,httpError,httpTimeout);
+    httpRequest('file_server' + what,onFileLogReceived,httpError,httpTimeout);
 }
-function onFSLogReceived()
+function onFileLogReceived()
 {
-    $('#fs_logfile_content').html(this.responseText);
+    $('#filelog_content').html(this.responseText);
     setTimeout(function () {
         window.scroll({
-            top: $('#fs_logfile_div')[0].scrollHeight,
+            top: $('#filelog_div')[0].scrollHeight,
             left: 0,
             behavior: 'auto'    // smooth'
           });

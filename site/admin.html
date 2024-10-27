@@ -67,45 +67,36 @@
             <li class="nav-item">
                 <button
                     class="nav-link my_nav_link active"
-                    id="dashboard_button"
+                    id="system_tab_button"
                     data-bs-toggle="tab"
-                    data-bs-target="#dashboard">
-                    Dashboard
+                    data-bs-target="#system_tab">
+                    System
                 </button>
             </li>
             <li class="nav-item">
                 <button
                     class="nav-link my_nav_link"
-                    id="device_button"
+                    id="info_tab_button"
                     data-bs-toggle="tab"
-                    data-bs-target="#device">
-                    Device
-                </button>
-            </li>
-            <li class="nav-item">
-                <button
-                    class="nav-link my_nav_link hidden"
-                    id="sdcard_button"
-                    data-bs-toggle="tab"
-                    data-bs-target="#sdcard">
-                    SD
+                    data-bs-target="#server_info_tab">
+                    Info
                 </button>
             </li>
             <li class="nav-item">
                 <button
                     class="nav-link my_nav_link"
-                    id="fs_logfile_button"
+                    id="filelog_tab_button"
                     data-bs-toggle="tab"
-                    data-bs-target="#fs_logfile">
+                    data-bs-target="#filelog_tab">
                     FileLog
                 </button>
             </li>
             <li class="nav-item">
                 <button
                     class="nav-link my_nav_link"
-                    id="logfile_button"
+                    id="servicelog_tab_button"
                     data-bs-toggle="tab"
-                    data-bs-target="#logfile">
+                    data-bs-target="#servicelog_tab">
                     ServiceLog
                 </button>
             </li>
@@ -118,11 +109,11 @@
 
 <div id="my_tab_content" class="tab-content" style="position:relative; top:50px; width:100%">
 
-    <!-- dashboard tab -->
+    <!-- System tab -->
 
-    <div id="dashboard" class="tab-pane fade show active" width='100%'>
+    <div id="system_tab" class="tab-pane fade show active" width='100%'>
 
-        <table id='dashboard_table' class='table' width='90%'>
+        <table id='system_tab_table' class='table' width='90%'>
             <thead>
                 <tr>
                     <th width='140px'>Name</th>
@@ -176,17 +167,18 @@
             </tbody>
         </table>
 
-		<div id='dashboard_div' style='margin-left:10px;'>
-			<pre id='dashboard_content'>
+		<!-- div id='system_tab_div' style='margin-left:10px;'>
+			<pre id='system_tab_ontent'>
 			</pre>
-		</div>
+		</div --->
 
     </div>
 
-    <!-- device tab -->
 
-    <div id="device" class="tab-pane fade"  width='100%'>
-        <table id='device_table' class='table' width='90%'>
+    <!-- Server Info tab -->
+
+    <div id="server_info_tab" class="tab-pane fade"  width='100%'>
+        <table id='server_info_table' class='table' width='90%'>
             <thead>
                 <tr>
                     <th width='140px'>Name</th>
@@ -207,28 +199,28 @@
 
     <!-- FileLog Tab -->
 
-    <div id="fs_logfile" class="tab-pane fade" width='100%'>
-        <div id='fs_logfile_header'>
+    <div id="filelog_tab" class="tab-pane fade" width='100%'>
+        <div id='filelog_header'>
 			<!-- relative to body -->
-			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:10px;' onClick="fs_logfile('/log')">Refresh</button>
-			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:150px;' onClick="fs_logfile('/log/clear')">Clear</button>
+			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:10px;' onClick="doFileLog('/log')">Refresh</button>
+			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:150px;' onClick="doFileLog('/log/clear')">Clear</button>
 		</div>
-		<div id='fs_logfile_div' style='position:relative; top:50px; width:100%;'>	<!-- relative to pane -->
-			<pre id='fs_logfile_content' >
+		<div id='filelog_div' style='position:relative; top:50px; width:100%;'>	<!-- relative to pane -->
+			<pre id='filelog_content'>
 			</pre>
 		</div>
 	</div>
 
     <!-- ServiceLog Tab -->
 
-    <div id="logfile" class="tab-pane fade">
-        <div id='logfile_header'>
+    <div id="servicelog_tab" class="tab-pane fade">
+        <div id='servicelog_header'>
 			<!-- relative to body -->
-			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:10px;' onClick="logfile('/log')">Refresh</button>
-			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:150px;' onClick="logfile('/log/clear')">Clear</button>
+			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:10px;' onClick="doServiceLog('/log')">Refresh</button>
+			<button class="btn btn-primary fixed-top" style='top:60px; width:130px; left:150px;' onClick="doServiceLog('/log/clear')">Clear</button>
 		</div>
-		<div id='logfile_div' style='position:relative; top:50px;  width:100%;'> 	<!-- relative to pane -->
-			<pre id='logfile_content' >
+		<div id='servicelog_div' style='position:relative; top:50px;  width:100%;'> 	<!-- relative to pane -->
+			<pre id='servicelog_content'>
 			</pre>
 		</div>
 	</div>

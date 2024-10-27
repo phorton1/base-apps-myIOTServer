@@ -18,6 +18,7 @@ use Pub::Prefs;
 use Pub::ServiceUpdate;
 use Pub::HTTP::Response;
 use Pub::HTTP::ServerBase;
+use apps::myIOTServer::Device;
 use base qw(Pub::HTTP::ServerBase);
 
 
@@ -89,22 +90,22 @@ sub handle_request
 	elsif ($uri =~ /^\/file_server\/(.*)$/)
 	{
 		my $what = $1;
-		my $fs_logfile = "/base_data/temp/fileServer/fileServer.log";
+		my $filelog = "/base_data/temp/fileServer/fileServer.log";
 		if ($what eq 'log')
 		{
 			$response = Pub::HTTP::Response->new($request,
-				shared_clone({filename=>$fs_logfile}),
+				shared_clone({filename=>$filelog}),
 				200,'text/plain');
 		}
 		elsif ($what eq 'log/clear')
 		{
-			unlink $fs_logfile;
+			unlink $filelog;
 			my $save_logfile = $logfile;
-			$logfile = $fs_logfile;
-			LOG(0,"fs_logfile $fs_logfile cleared");
+			$logfile = $filelog;
+			LOG(0,"filelog $filelog cleared");
 			$logfile = $save_logfile;
 			$response = Pub::HTTP::Response->new($request,
-				shared_clone({filename=>$fs_logfile}),
+				shared_clone({filename=>$filelog}),
 				200,'text/plain');
 		}
 		elsif ($what =~ /^(stop|start|restart)$/)
@@ -131,6 +132,82 @@ sub handle_request
 	elsif ($uri eq "/ws")
 	{
 		$response = apps::myIOTServer::WSRemote::handle_request($this,$client,$request);
+	}
+
+
+	#-------------------------------------------
+	# experiments
+	#-------------------------------------------
+
+	elsif ($uri eq '/get_device_widgets')
+	{
+		my $devices = apps::myIOTServer::Device::getDevices();
+			# the key is the uuid of the device.
+			# interesting fields:
+			#	uuid
+			#	version
+			#	type
+			#	cache->
+			#		device_name					"fridgeController"
+			#		device_widget->
+			#			onInactivate:			"stopChart('fridgeData')"
+			#			onActivate				"doChart('fridgeData')"
+			#			html
+			#
+			#				 <div id='fridgeData'>
+			#				 	<div id='fridgeData_chart' class='iot_chart'></div>
+			#				 	&nbsp;&nbsp;&nbsp;
+			#				 	<button id='fridgeData_update_button' onclick="doChart('fridgeData')" disabled>Update</button>
+			#				 	&nbsp;&nbsp;&nbsp;
+			#				 	<label for='fridgeData_chart_period'>Chart Period:</label>
+			#				 	<select name='period' id='fridgeData_chart_period' onchange="get_chart_data('fridgeData')">
+			#				 		<option value='0'>All</option>
+			#				 		<option value='60'>Minute</option>
+			#				 		...
+			#				 		<option value='86400' selected='selected'>Day</option>
+			#				 		...
+			#				 		<option value='7776000'>3 Months</option>
+			#				 		<option value='31536000'>Year</option>
+			#				 	</select>
+			#				 	&nbsp;&nbsp;&nbsp;
+			#				 	<label for='fridgeData_refresh_interval'>Refresh Interval:</label>
+			#				 	<input id='fridgeData_refresh_interval' type='number' value='0' min='0' max='999999'>
+			#				 </div>
+			#
+			#			name:					fridgeWidget
+			#			dependencies:			comma delimited list of href portions of dependencies
+			#
+			#		the "name" should be "fridgeData", and THAT should be sufficient
+			#		to create the onInactivate and Activate calls.
+			#
+			# Have to think about this a bit.
+			# A "widget" is NOT a chart, although a device's widget may primarily be a chart.
+			# A widget is a small html-ish summary of the state of the device, perhaps with specific
+			# 		values and formats and new display characteristics, that *may* include a chart
+			#		or plot as part of the presentation.
+
+
+
+		my $new_devices = {};
+		for my $device (values %$devices)
+		{
+			my $uuid = $device->{uuid};
+
+			my $new_device = {};
+			$new_devices->{$uuid} = $new_device;
+
+			$new_device->{uuid} = $uuid;
+			$new_device->{device_name} = $device->{cache}->{device_name};
+			$new_device->{device_widget} = $device->{cache}->{device_widget};
+		}
+
+		use Data::Dumper;
+		$Data::Dumper::Indent = 1;
+		$Data::Dumper::Sortkeys = 1;
+		print "\n-------------------------DEVICES -------------------------------\n";
+		print Dumper($new_devices);
+		print "\n-----------------------------------------------------------\n";
+		$response = json_response($request,$new_devices);
 	}
 
 
