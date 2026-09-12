@@ -106,7 +106,7 @@ use JSON;
 
 
 my $dbg_device = 0;			# usual debugging where 0 == show, 1 == dont, -1,-2 more detail,
-my $dbg_set_values = 0;		# if !$dbg_device, 0 == show set values, 1 == don't show
+my $dbg_set_values = 1;		# if !$dbg_device, 0 == show set values, 1 == don't show
 
 my $REOPEN_DEVICE_INTERVAL = 4;
 	# seconds after we detect a closed socket
