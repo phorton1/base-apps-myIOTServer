@@ -221,6 +221,30 @@ sub handle_ws_remote
 						goto CLOSE_REMOTE;
 					}
 
+					# A websocket CONTROL ping/pong frame (opcode 9/10) is not JSON.
+					# Firefox sends periodic control pings (payload "PING"); left to
+					# fall through, that payload reached decode_json() which died and
+					# killed the whole thread, dropping the browser's socket. Answer a
+					# ping with a pong, ignore a pong, and never let any non-JSON frame
+					# reach the json processor.
+
+					if ($frame->is_ping())
+					{
+						my $pong = Protocol::WebSocket::Frame->new(type => 'pong', buffer => $data);
+						$sock->write($pong->to_bytes());
+						warning($dbg_wss,-1,"WS_REMOTE($server_num) answered control PING(opcode 9) len(".length($data).")");
+						next;
+					}
+					if ($frame->is_pong())
+					{
+						next;
+					}
+					if ($data !~ /^\s*[\[{]/)
+					{
+						warning($dbg_wss,-1,"WS_REMOTE($server_num) IGNORING non-JSON frame opcode(".$frame->opcode().") data(".substr($data,0,32).")");
+						next;
+					}
+
 					# ping handled in tight loop
 
 					if ($data eq '{"cmd":"ping"}')
