@@ -13,6 +13,7 @@ use warnings;
 use threads;
 use threads::shared;
 use IO::Socket::INET;
+use IO::Select;
 use Pub::Utils;
 use Pub::Prefs;
 use Pub::ServiceUpdate;
@@ -59,9 +60,7 @@ sub handle_request
 	# Handle pass-thru requests to devices
 
 	if ($method eq 'POST' &&
-		$uri =~ /^\/(ota_files)/ ||
-		$uri =~ /^\/(spiffs_files)/ ||
-		$uri =~ /^\/(sdcard_files)/)
+		$uri =~ /^\/(ota_files|spiffs_files|sdcard_files)/)
 	{
 		my $kind = $1;
 		display_hash($dbg_fwd+1,-1,"headers",$request->{headers});
@@ -71,9 +70,7 @@ sub handle_request
 		$response = forwardRequest($client,$request,$kind,$uuid);
 	}
 	elsif ($method eq 'GET' &&
-		 $uri =~ /^\/(custom)\// ||
-		 $uri =~ /^\/(sdcard)\// ||
-		 $uri =~ /^\/(spiffs)\//)
+		 $uri =~ /^\/(custom|sdcard|spiffs)\//)
 	{
 		my $kind = $1;
 		my $params = $request->{params};
@@ -81,6 +78,56 @@ sub handle_request
 		return http_error($request,"No UUID header in $kind $request->{method} request")
 			if !$uuid;
 		$response = forwardRequest($client,$request,$kind,$uuid);
+	}
+
+	# Generic access to the values of a device over http(s).
+	#
+	#	GET  /values?uuid=U
+	#	GET  /values/ID?uuid=U
+	#	POST /values/ID				header X-myIOT-DeviceUUID: U, body value=xxx or {"value":"xxx"}
+	#	POST /values/ID/invoke		header X-myIOT-DeviceUUID: U
+	#
+	# The uuid may be given in either the header or the query param
+	# for either method.  The device paths are unchanged.  Errors are
+	# returned as json {"error":"msg"} like the device does.
+
+	elsif (($method eq 'GET' || $method eq 'POST') &&
+		   $uri =~ /^\/(values)(\/|$)/)
+	{
+		my $kind = $1;
+		my $uuid =
+			$request->{headers}->{'x-myiot-deviceuuid'} ||
+			$request->{params}->{uuid};
+		if (!$uuid)
+		{
+			$response = jsonErrorResponse($request,400,"No UUID in $kind $method request");
+		}
+		elsif (!apps::myIOTServer::Device::findDeviceByUUID($uuid))
+		{
+			$response = jsonErrorResponse($request,404,"Unknown device uuid($uuid)");
+		}
+		else
+		{
+			$response = forwardRequest($client,$request,$kind,$uuid);
+		}
+	}
+
+	# Return a json list of the known devices
+
+	elsif ($method eq 'GET' && $uri eq '/devices')
+	{
+		my $devices = apps::myIOTServer::Device::getDevices();
+		my $list = [];
+		for my $uuid (sort keys %$devices)
+		{
+			my $device = $devices->{$uuid};
+			push @$list,{
+				uuid	=> $device->{uuid},
+				type	=> $device->{type},
+				ip		=> $device->{ip},
+				version	=> $device->{version} };
+		}
+		$response = json_response($request,$list);
 	}
 
 	#---------------------------------------------
@@ -252,6 +299,16 @@ sub handle_request
 # we have depend on sysread() returning 0 when the content is finished.
 
 
+sub jsonErrorResponse
+	# json error reply with a real status code, in the same
+	# {"error":"msg"} form that the devices use
+{
+	my ($request,$code,$msg) = @_;
+	error("JSON_ERROR RESPONSE($request->{request_num}): $code $msg");
+	return Pub::HTTP::Response->new($request,{error => $msg},$code,'application/json');
+}
+
+
 sub forwardRequest
 	# this might be something that is limited by auth_privs
 {
@@ -269,11 +326,19 @@ sub forwardRequest
 
 	# open the socket
 
-	my $sock = IO::Socket::INET->new("$device->{ip}:$device->{port}");
+	my $is_values = $kind eq 'values' ? 1 : 0;
+		# values requests are short, so we apply timeouts and return
+		# json errors instead of waiting on, or dropping, the client
+
+	my $sock = IO::Socket::INET->new(
+		PeerAddr => "$device->{ip}:$device->{port}",
+		Timeout => 10);
 	if (!$sock)
 	{
 		error("Could not open connection to $device->{type} at $device->{ip}:$device->{port}");
-		return;
+		return $is_values ?
+			jsonErrorResponse($request,502,"Could not connect to device($uuid)") :
+			undef;
 	}
 
 	# magic copied from apps::myIOTServer::Message.pm
@@ -347,15 +412,40 @@ sub forwardRequest
 	my $content_length = -1;
 	display($dbg_fwd+1,0,"waiting for result");
 
+	my $select = IO::Select->new($sock);
+	my $VALUES_TIMEOUT = 10;
+
 	if (1)	# working code, do a single recv() call to get all headers
 	{
-		my $buf;
-		my $rslt = $sock->recv($buf,10000);
-		if (length($buf))
+		my $buf = '';
+		my $ready = !$is_values || $select->can_read($VALUES_TIMEOUT);
+		$sock->recv($buf,10000) if $ready;
+		if (!defined($buf) || !length($buf))
+		{
+			# No response. For values this is normal for REBOOT/invoke,
+			# as the device reboots without replying.
+			if ($is_values)
+			{
+				warning(0,0,"no response from device($uuid) to $request->{method} $uri");
+				$sock->close();
+				return jsonErrorResponse($request,502,
+					"No response from device (it may be rebooting)");
+			}
+		}
+		else
 		{
 			display_bytes($dbg_fwd+1,0,"got headers",$buf);
 			$client->write($buf);
-			$content_length = $1 if $buf =~ /Content-Length: (\d+)/;
+			$content_length = $1 if $buf =~ /Content-Length: (\d+)/i;
+
+			# Part of the content may have arrived with the headers.
+			# Don't wait for bytes that we have already forwarded.
+
+			if ($content_length > 0 && $buf =~ /\r\n\r\n(.*)$/s)
+			{
+				$content_length -= length($1);
+				$content_length = 0 if $content_length < 0;
+			}
 		}
 	}
 
@@ -395,6 +485,11 @@ sub forwardRequest
 			if (time() > $timeout + $TIMEOUT)
 			{
 				error("read timed out");
+				last;
+			}
+			if ($is_values && !$select->can_read($VALUES_TIMEOUT))
+			{
+				error("values read timed out");
 				last;
 			}
 			my $to_read = $remain > 0 ? $remain : 10000;
